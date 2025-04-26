@@ -1,6 +1,17 @@
 {
-  "compilerOptions": {},
   "extends": "expo/tsconfig.base",
+
+  "compilerOptions": {
+    /* turn on whichever checks you like — optional */
+    "strict": true,
+
+    /* 👇 the two lines that teach TS about "@/…" */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+
   "include": [
     "**/*.ts",
     "**/*.tsx",
