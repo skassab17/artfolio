@@ -9,7 +9,16 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';         // <- the file you just made
+import { doc } from 'firebase/firestore';
 
+
+useEffect(() => {
+  const unsub = onSnapshot(
+    doc(db, '__ping__/live'),   // a doc that probably doesn't exist
+    () => console.log('📡 Firestore is reachable')
+  ,  err => console.log('🚫 Lost Firestore', err.code));
+  return unsub;
+}, []);
 export default function FeedScreen() {
   const [art, setArt] = useState<Artwork[]>([]);
 

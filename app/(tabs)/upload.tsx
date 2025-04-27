@@ -2,17 +2,10 @@
 import { useState } from 'react';
 import { View, Button, Text, ActivityIndicator, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL,
-} from 'firebase/storage';
-import {
-  collection,
-  addDoc,
-  serverTimestamp,
-} from 'firebase/firestore';
-import { storage, db } from '@/lib/firebase';     // 1️⃣ make sure db is exported
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { storage, db } from '@/lib/firebase';
+import { FirebaseError } from 'firebase/app';
 
 export default function UploadScreen() {
   const [loading, setLoading] = useState(false);
@@ -24,29 +17,34 @@ export default function UploadScreen() {
     try {
       setLoading(true);
 
-      /** 2️⃣ Upload blob to Storage */
+      // 1) upload
       const asset   = res.assets[0];
       const blob    = await fetch(asset.uri).then(r => r.blob());
       const fileRef = ref(storage, `art/${Date.now()}.jpg`);
       await uploadBytes(fileRef, blob);
 
-      /** 3️⃣ Get public URL */
+      // 2) public URL
       const url = await getDownloadURL(fileRef);
 
-      /** 4️⃣ Write a Firestore doc */
+      // 3) Firestore doc
       await addDoc(collection(db, 'artworks'), {
-        url,                              // Storage URL
-        category: 'watercolor',           // TODO: make dynamic later
-        ownerUid: 'anon',                 // TODO: replace with auth.currentUser?.uid
-        createdAt: serverTimestamp(),     // server time for proper sorting
+        url,
+        category: 'watercolor',
+        ownerUid: 'anon',
+        createdAt: serverTimestamp(),
       });
 
+      Alert.alert('Success', 'Artwork uploaded!');
+    } catch (err: unknown) {
+      if (err instanceof FirebaseError) {
+        console.log('🔥 Firebase error:', err.code, err.message);
+        Alert.alert('Upload failed', `${err.code}\n${err.message}`);
+      } else {
+        console.log('❌ Unknown error', err);
+        Alert.alert('Upload failed', 'Unknown error');
+      }
+    } finally {
       setLoading(false);
-      Alert.alert('Success', 'Artwork uploaded!');   // optional toast
-    } catch (err: any) {
-      console.error(err);
-      setLoading(false);
-      Alert.alert('Upload failed', err.message);
     }
   }
 

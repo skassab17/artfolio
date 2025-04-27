@@ -1,14 +1,12 @@
 // lib/firebase.ts
-import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getAuth }      from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage }   from 'firebase/storage';
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import {
+  initializeFirestore,
+  type Firestore,
+} from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyDDFro5Hf_kIqSvFpWsOZU177zo6Akajkg",
   authDomain: "artfolio-6c0c2.firebaseapp.com",
@@ -19,11 +17,13 @@ const firebaseConfig = {
   measurementId: "G-WYNZ6L1LH6"
 };
 
-/** 2)  Only initialize once when hot-reload runs */
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 
-/** 3)  Export the services you need */
-export const auth     = getAuth(app);
-export const db       = getFirestore(app);
-export const storage  = getStorage(app);
+/** Simulator-safe Firestore instance */
+export const db: Firestore = initializeFirestore(app, {
+  experimentalForceLongPolling: true,   // 👈 key line
+  /* do NOT include useFetchStreams – it was removed in >11.7 */
+});
+
+export const auth    = getAuth(app);    // warning is OK for now
+export const storage = getStorage(app);
