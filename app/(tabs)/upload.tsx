@@ -1,7 +1,8 @@
 import { View, Button, ActivityIndicator, Text } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '@/lib/firebase';
+import { storage, db } from '@/lib/firebase';
+import { getApps } from 'firebase/app';
 import { useState } from 'react';
 
 export default function UploadScreen() {

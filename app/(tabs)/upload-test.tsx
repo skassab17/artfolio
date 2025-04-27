@@ -4,33 +4,36 @@ import { View, Button, Text, ActivityIndicator, Alert, Image } from 'react-nativ
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase'; // only storage!
+import { FirebaseError } from 'firebase/app';
 
 export default function UploadTestScreen() {
   const [loading, setLoading] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   async function pickAndUpload() {
-    const res = await ImagePicker.launchImageLibraryAsync({ quality: 0.7 });
-    if (res.canceled) return;
-
     try {
       setLoading(true);
-
-      const asset = res.assets[0];
-      const blob = await fetch(asset.uri).then(r => r.blob());
-      const fileRef = ref(storage, `test-uploads/${Date.now()}.jpg`);
-      await uploadBytes(fileRef, blob);
-
+  
+      const textBlob = new Blob(["Hello from Artfolio!"], { type: 'text/plain' });
+  
+      const fileRef = ref(storage, `test-uploads/${Date.now()}.txt`);
+      await uploadBytes(fileRef, textBlob);
+  
       const url = await getDownloadURL(fileRef);
       setImageUrl(url);
-
-      console.log('✅ Uploaded to:', url);
-      Alert.alert('Success!', 'Image uploaded.');
-    } catch (err) {
-      console.error('❌ Upload error:', err);
-      Alert.alert('Upload failed', (err as Error).message);
-    } finally {
+  
+      console.log('✅ Uploaded text file to:', url);
+      Alert.alert('Success!', 'Text file uploaded.');
+    } catch (err: any) {
+      console.error('❌ Upload failed:', err);
+    
       setLoading(false);
+    
+      if (err instanceof FirebaseError) {
+        Alert.alert('Upload failed', `Code: ${err.code}\nMessage: ${err.message}`);
+      } else {
+        Alert.alert('Upload failed', 'Unknown error');
+      }
     }
   }
 

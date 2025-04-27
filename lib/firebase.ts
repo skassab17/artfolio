@@ -2,6 +2,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import {
+  getFirestore,
   initializeFirestore,
   type Firestore,
 } from 'firebase/firestore';
@@ -20,10 +21,8 @@ const firebaseConfig = {
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 /** Simulator-safe Firestore instance */
-export const db: Firestore = initializeFirestore(app, {
-  experimentalForceLongPolling: true,   // 👈 key line
-  /* do NOT include useFetchStreams – it was removed in >11.7 */
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
 });
-
 export const auth    = getAuth(app);    // warning is OK for now
 export const storage = getStorage(app);
