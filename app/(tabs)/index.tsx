@@ -11,14 +11,21 @@ import {
 import { db } from '@/lib/firebase';         // <- the file you just made
 import { doc } from 'firebase/firestore';
 
+export function HomeScreen() {
+  useEffect(() => {
+    const unsub = onSnapshot(
+      doc(db, '__ping__/live'),
+      () => console.log('Firestore is reachable')
+    );
+    return unsub;
+  }, []);
 
-useEffect(() => {
-  const unsub = onSnapshot(
-    doc(db, '__ping__/live'),   // a doc that probably doesn't exist
-    () => console.log('📡 Firestore is reachable')
-  ,  err => console.log('🚫 Lost Firestore', err.code));
-  return unsub;
-}, []);
+  return (
+    <View>
+      <Text>Home screen</Text>
+    </View>
+  );
+}
 export default function FeedScreen() {
   const [art, setArt] = useState<Artwork[]>([]);
 

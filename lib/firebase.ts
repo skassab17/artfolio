@@ -11,7 +11,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyDDFro5Hf_kIqSvFpWsOZU177zo6Akajkg",
   authDomain: "artfolio-6c0c2.firebaseapp.com",
   projectId: "artfolio-6c0c2",
-  storageBucket: "artfolio-6c0c2.firebasestorage.app",
+  storageBucket: "artfolio-6c0c2.appspot.com",
   messagingSenderId: "475182164507",
   appId: "1:475182164507:web:1af4f78ebcb7dc784a26be",
   measurementId: "G-WYNZ6L1LH6"
