@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { View, Button, Text, ActivityIndicator, Alert } from 'react-native';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase'; // ✅ make sure storage is exported correctly
+import { uploadBytesResumable } from 'firebase/storage';
 
 export default function UploadTestScreen() {
   const [loading, setLoading] = useState(false);
@@ -19,8 +20,8 @@ export default function UploadTestScreen() {
       const fileRef = ref(storage, `test-uploads/testfile-${Date.now()}.txt`);
 
       // Upload the file
-      await uploadBytes(fileRef, textBlob);
-
+      await uploadBytesResumable(fileRef, textBlob, { contentType: 'text/plain' });
+      
       // Get the public URL
       const url = await getDownloadURL(fileRef);
       console.log('✅ File uploaded! URL:', url);
