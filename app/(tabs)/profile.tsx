@@ -6,7 +6,16 @@ import ParallaxScrollView from '../../components/ParallaxScrollView';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 import { IconSymbol } from '../../components/ui/IconSymbol';
+import { onSnapshot, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
+try {
+  const unsub = onSnapshot(doc(db, '__ping__/live'), (doc) => {
+    console.log('🔔 Firestore is reachable!', doc.exists());
+  });
+} catch (error) {
+  console.error('❌ Snapshot error:', error);
+}
 export default function TabTwoScreen() {
   return (
     <ParallaxScrollView
@@ -20,7 +29,7 @@ export default function TabTwoScreen() {
         />
       }>
       <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Explore</ThemedText>
+        <ThemedText type="title">Test</ThemedText>
       </ThemedView>
       <ThemedText>This app includes example code to help you get started.</ThemedText>
       <Collapsible title="File-based routing">

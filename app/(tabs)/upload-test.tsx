@@ -2,8 +2,8 @@
 import { useState } from 'react';
 import { View, Button, Text, ActivityIndicator, Alert } from 'react-native';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '@/lib/firebase'; // ✅ make sure storage is exported correctly
-import { uploadBytesResumable } from 'firebase/storage';
+import { storage } from '@/lib/firebase';
+import { FirebaseError } from 'firebase/app';
 
 export default function UploadTestScreen() {
   const [loading, setLoading] = useState(false);
@@ -12,28 +12,34 @@ export default function UploadTestScreen() {
   async function uploadTestFile() {
     try {
       setLoading(true);
-  
+
       // Create a small text blob
       const textBlob = new Blob(["Hello from Artfolio!"], { type: 'text/plain' });
-  
-      // Correct file reference (no gs:// prefix needed)
+
+      // Create a file reference (✅ only relative path)
       const fileRef = ref(storage, `test-uploads/${Date.now()}.txt`);
-    
-      // Log where we are uploading
-      console.log('Uploading to ref:', fileRef.toString());
+
+      console.log('📤 Uploading to ref:', fileRef.fullPath);
 
       // Upload the file
       await uploadBytes(fileRef, textBlob);
-  
+
       // Get the public URL
       const url = await getDownloadURL(fileRef);
       console.log('✅ File uploaded! URL:', url);
-  
+
       setFileUrl(url);
-      Alert.alert('Success', 'File uploaded!');
+      Alert.alert('Success!', 'File uploaded!');
     } catch (err: any) {
-      console.error('❌ Upload error:', err);
-      Alert.alert('Failed!', err?.message ?? 'Unknown error');
+      if (err instanceof FirebaseError) {
+        console.error('🔥 FirebaseError');
+        console.error('Code:', err.code);
+        console.error('Message:', err.message);
+        console.error('CustomData:', err.customData);
+      } else {
+        console.error('❌ General error:', err);
+      }
+      Alert.alert('Upload failed!', err?.message ?? 'Unknown error');
     } finally {
       setLoading(false);
     }

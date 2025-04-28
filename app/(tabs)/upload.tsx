@@ -16,7 +16,7 @@ export default function UploadScreen() {
       setLoading(true);
       const asset = res.assets[0];
       const blob = await fetch(asset.uri).then(r => r.blob());
-      const fileRef = ref(storage, `test/${Date.now()}.jpg`);
+      const fileRef = ref(storage, `${Date.now()}.jpg`);
       await uploadBytes(fileRef, blob);
       const url = await getDownloadURL(fileRef);
       console.log('✅ Uploaded to:', url);
