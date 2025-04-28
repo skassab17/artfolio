@@ -1,11 +1,9 @@
 // lib/firebase.ts
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import {
-  getFirestore,
-  initializeFirestore,
-  type Firestore,
-} from 'firebase/firestore';
+import { getFirestore, initializeFirestore } from 'firebase/firestore';
+import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage'
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -18,11 +16,18 @@ const firebaseConfig = {
   measurementId: "G-WYNZ6L1LH6"
 };
 
+// Initialize app
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-/** Simulator-safe Firestore instance */
+// Auth
+export const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(ReactNativeAsyncStorage)
+});  // ✅ just getAuth, no persistence options
+
+// Firestore
 export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
+  experimentalForceLongPolling: true,  // ✅ fixes offline/react-native issues
 });
-export const auth    = getAuth(app);    // warning is OK for now
+
+// Storage
 export const storage = getStorage(app);
