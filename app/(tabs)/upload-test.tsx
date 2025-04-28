@@ -12,20 +12,23 @@ export default function UploadTestScreen() {
   async function uploadTestFile() {
     try {
       setLoading(true);
-
+  
       // Create a small text blob
       const textBlob = new Blob(["Hello from Artfolio!"], { type: 'text/plain' });
-
-      // Create a file reference
-      const fileRef = ref(storage, `test-uploads/testfile-${Date.now()}.txt`);
+  
+      // Correct file reference (no gs:// prefix needed)
+      const fileRef = ref(storage, `test-uploads/${Date.now()}.txt`);
+    
+      // Log where we are uploading
+      console.log('Uploading to ref:', fileRef.toString());
 
       // Upload the file
-      await uploadBytesResumable(fileRef, textBlob, { contentType: 'text/plain' });
-      
+      await uploadBytes(fileRef, textBlob);
+  
       // Get the public URL
       const url = await getDownloadURL(fileRef);
       console.log('✅ File uploaded! URL:', url);
-
+  
       setFileUrl(url);
       Alert.alert('Success', 'File uploaded!');
     } catch (err: any) {
