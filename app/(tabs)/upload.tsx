@@ -1,6 +1,6 @@
 // app/(tabs)/upload.tsx
 import { useState } from 'react';
-import { View, Text, TextInput, Button, Image, ActivityIndicator, Alert, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TextInput, Button, Image, ActivityIndicator, Alert, StyleSheet, FlatList } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -51,14 +51,14 @@ export default function UploadScreen() {
         title,
         description,
         category,
-        ownerUid: 'anon', // Later replace with real auth.currentUser.uid
+        ownerUid: 'anon', // will replace with real user later
         createdAt: serverTimestamp(),
       });
 
       console.log('✅ Uploaded successfully!');
       Alert.alert('Success', 'Artwork uploaded!');
 
-      // Clear form
+      // Reset form
       setImageUri(null);
       setTitle('');
       setDescription('');
@@ -74,67 +74,73 @@ export default function UploadScreen() {
   const readyToUpload = imageUri && title.trim() && category && !loading;
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.label}>Select Category:</Text>
-      <DropDownPicker
-        open={categoryOpen}
-        value={category}
-        items={categories}
-        setOpen={setCategoryOpen}
-        setValue={setCategory}
-        setItems={setCategories}
-        placeholder="Select a category..."
-        searchable={true}
-        style={styles.dropdown}
-        dropDownContainerStyle={{ borderColor: '#ccc' }}
-      />
+    <FlatList
+      data={[]} // Still empty (only using ListHeaderComponent)
+      renderItem={null} // ✅ tell FlatList explicitly
+      keyExtractor={() => 'dummy'} // no real items
+      ListHeaderComponent={
+        <View style={styles.container}>
+          <Text style={styles.label}>Select Category:</Text>
+          <DropDownPicker
+            open={categoryOpen}
+            value={category}
+            items={categories}
+            setOpen={setCategoryOpen}
+            setValue={setCategory}
+            setItems={setCategories}
+            placeholder="Select a category..."
+            searchable={true}
+            style={styles.dropdown}
+            dropDownContainerStyle={{ borderColor: '#ccc' }}
+          />
 
-      <Text style={styles.label}>Title:</Text>
-      <TextInput
-        placeholder="Enter a title..."
-        value={title}
-        onChangeText={setTitle}
-        style={styles.input}
-      />
+          <Text style={styles.label}>Title:</Text>
+          <TextInput
+            placeholder="Enter a title..."
+            value={title}
+            onChangeText={setTitle}
+            style={styles.input}
+          />
 
-      <Text style={styles.label}>Description:</Text>
-      <TextInput
-        placeholder="Enter a short description..."
-        value={description}
-        onChangeText={setDescription}
-        style={[styles.input, { height: 80 }]}
-        multiline
-      />
+          <Text style={styles.label}>Description:</Text>
+          <TextInput
+            placeholder="Enter a short description..."
+            value={description}
+            onChangeText={setDescription}
+            style={[styles.input, { height: 80 }]}
+            multiline
+          />
 
-      <Button
-        title={imageUri ? 'Change Image' : 'Pick an Image'}
-        onPress={pickImage}
-      />
+          <Button
+            title={imageUri ? 'Change Image' : 'Pick an Image'}
+            onPress={pickImage}
+          />
 
-      {imageUri && (
-        <Image
-          source={{ uri: imageUri }}
-          style={styles.preview}
-          resizeMode="cover"
-        />
-      )}
+          {imageUri && (
+            <Image
+              source={{ uri: imageUri }}
+              style={styles.preview}
+              resizeMode="cover"
+            />
+          )}
 
-      <View style={{ marginTop: 24 }}>
-        <Button
-          title={loading ? 'Uploading...' : 'Upload Artwork'}
-          onPress={uploadArtwork}
-          disabled={!readyToUpload}
-        />
-        {loading && <ActivityIndicator style={{ marginTop: 16 }} />}
-      </View>
-    </ScrollView>
+          <View style={{ marginTop: 24 }}>
+            <Button
+              title={loading ? 'Uploading...' : 'Upload Artwork'}
+              onPress={uploadArtwork}
+              disabled={!readyToUpload}
+            />
+            {loading && <ActivityIndicator style={{ marginTop: 16 }} />}
+          </View>
+        </View>
+      }
+    />
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     padding: 24,
-    paddingBottom: 80,
     backgroundColor: 'white',
   },
   label: {

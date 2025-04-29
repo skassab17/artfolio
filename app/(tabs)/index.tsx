@@ -1,37 +1,43 @@
 // app/(tabs)/feed.tsx
 import { useEffect, useState } from 'react';
-import { View, FlatList, Text, Image, ActivityIndicator, RefreshControl, StyleSheet } from 'react-native';
+import { View, FlatList, Text, Image, ActivityIndicator, RefreshControl, TextInput, Pressable, StyleSheet } from 'react-native';
 import { collection, getDocs, orderBy, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Picker } from '@react-native-picker/picker';
 
 interface Artwork {
   id: string;
   url: string;
+  title?: string;
+  description?: string;
   category: string;
   ownerUid: string;
   createdAt: any;
 }
 
+const CATEGORIES = ['Watercolor', 'Oil Painting', 'Digital Art', 'Sketch', 'Other'];
+
 export default function FeedScreen() {
   const [artworks, setArtworks] = useState<Artwork[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [category, setCategory] = useState('All');
+  const [categoryInput, setCategoryInput] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
 
   useEffect(() => {
     fetchArtworks();
-  }, [category]);
+  }, [selectedCategory]);
 
   async function fetchArtworks() {
     try {
       setLoading(true);
 
       const colRef = collection(db, 'artworks');
+      let q;
 
-      let q = query(colRef, orderBy('createdAt', 'desc'));
-      if (category !== 'All') {
-        q = query(colRef, where('category', '==', category), orderBy('createdAt', 'desc'));
+      if (selectedCategory && selectedCategory !== 'All') {
+        q = query(colRef, where('category', '==', selectedCategory), orderBy('createdAt', 'desc'));
+      } else {
+        q = query(colRef, orderBy('createdAt', 'desc'));
       }
 
       const snapshot = await getDocs(q);
@@ -41,48 +47,51 @@ export default function FeedScreen() {
       setArtworks(items as Artwork[]);
     } catch (error) {
       console.error('❌ Error loading artworks:', error);
-      setArtworks([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }
 
-  const onRefresh = async () => {
+  const onRefresh = () => {
     setRefreshing(true);
-    await fetchArtworks();
+    fetchArtworks();
   };
 
-  const renderArtwork = ({ item }: { item: Artwork }) => (
-    <View style={styles.artworkContainer}>
-      <Image
-        source={{ uri: item.url }}
-        style={styles.image}
-        resizeMode="cover"
-      />
-      <Text style={styles.categoryText}>{item.category}</Text>
-    </View>
-  );
+  const matchingCategories = categoryInput.length > 0
+    ? CATEGORIES.filter(cat => cat.toLowerCase().includes(categoryInput.toLowerCase()))
+    : [];
 
   return (
-    <View style={{ flex: 1 }}>
-      {/* Category Picker */}
-      <Picker
-        selectedValue={category}
-        onValueChange={(value) => setCategory(value)}
-        style={styles.picker}
-      >
-        <Picker.Item label="All" value="All" />
-        <Picker.Item label="Watercolor" value="Watercolor" />
-        <Picker.Item label="Oil Painting" value="Oil Painting" />
-        <Picker.Item label="Digital Art" value="Digital Art" />
-      </Picker>
+    <View style={{ flex: 1, paddingHorizontal: 20 }}>
+      {/* TextInput for category search */}
+      <View style={{ marginTop: 12 }}>
+        <TextInput
+          placeholder="Filter by category..."
+          value={categoryInput}
+          onChangeText={setCategoryInput}
+          style={styles.input}
+        />
 
-      {/* Loading Spinner */}
+        {categoryInput.length > 0 && (
+          <View style={styles.dropdown}>
+            <Pressable onPress={() => { setSelectedCategory('All'); setCategoryInput(''); }}>
+              <Text style={styles.dropdownItem}>All</Text>
+            </Pressable>
+            {matchingCategories.map((cat) => (
+              <Pressable
+                key={cat}
+                onPress={() => { setSelectedCategory(cat); setCategoryInput(''); }}
+              >
+                <Text style={styles.dropdownItem}>{cat}</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+      </View>
+
       {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" />
-        </View>
+        <ActivityIndicator style={{ marginTop: 20 }} />
       ) : (
         <FlatList
           data={artworks}
@@ -90,11 +99,28 @@ export default function FeedScreen() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
-          contentContainerStyle={artworks.length === 0 ? styles.centered : { padding: 16 }}
+          contentContainerStyle={{ paddingVertical: 16 }}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>No artworks found in this category.</Text>
+            <View style={{ alignItems: 'center', marginTop: 40 }}>
+              <Text style={{ fontSize: 16, color: '#888' }}>No artworks found.</Text>
+            </View>
           }
-          renderItem={renderArtwork}
+          renderItem={({ item }) => (
+            <View style={styles.card}>
+              <Image
+                source={{ uri: item.url }}
+                style={styles.image}
+                resizeMode="cover"
+              />
+              {item.title && (
+                <Text style={styles.title}>{item.title}</Text>
+              )}
+              {item.description && (
+                <Text style={styles.description}>{item.description}</Text>
+              )}
+              <Text style={styles.categoryLabel}>Category: {item.category}</Text>
+            </View>
+          )}
         />
       )}
     </View>
@@ -102,16 +128,28 @@ export default function FeedScreen() {
 }
 
 const styles = StyleSheet.create({
-  picker: {
-    marginHorizontal: 20,
-    marginTop: 12,
+  input: {
+    height: 40,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginBottom: 8,
   },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  dropdown: {
+    backgroundColor: '#fff',
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
   },
-  artworkContainer: {
+  dropdownItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomColor: '#eee',
+    borderBottomWidth: 1,
+  },
+  card: {
     marginBottom: 20,
     alignItems: 'center',
   },
@@ -120,14 +158,21 @@ const styles = StyleSheet.create({
     height: 300,
     borderRadius: 16,
   },
-  categoryText: {
-    marginTop: 8,
-    fontSize: 16,
+  title: {
+    marginTop: 12,
+    fontSize: 18,
+    fontWeight: 'bold',
   },
-  emptyText: {
-    fontSize: 16,
-    color: '#888',
+  description: {
+    marginTop: 4,
+    fontSize: 14,
+    color: '#555',
     textAlign: 'center',
-    marginTop: 40,
+    paddingHorizontal: 8,
+  },
+  categoryLabel: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#888',
   },
 });
