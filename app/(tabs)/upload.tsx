@@ -1,34 +1,46 @@
 // app/(tabs)/upload.tsx
 import { useState } from 'react';
-import { View, Text, Button, ActivityIndicator, Alert, StyleSheet } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import { View, Text, TextInput, Button, Image, ActivityIndicator, Alert, StyleSheet, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { storage, db } from '@/lib/firebase';
-
-const categories = [
-  { label: 'Watercolor', value: 'Watercolor' },
-  { label: 'Oil Painting', value: 'Oil Painting' },
-  { label: 'Digital Art', value: 'Digital Art' },
-  { label: 'Sketch', value: 'Sketch' },
-  { label: 'Other', value: 'Other' },
-];
+import DropDownPicker from 'react-native-dropdown-picker';
 
 export default function UploadScreen() {
   const [loading, setLoading] = useState(false);
-  const [category, setCategory] = useState<string>('Watercolor');
-  const [uploading, setUploading] = useState(false);
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
 
-  async function pickAndUpload() {
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [category, setCategory] = useState<string | null>(null);
+  const [categories, setCategories] = useState([
+    { label: 'Watercolor', value: 'Watercolor' },
+    { label: 'Oil Painting', value: 'Oil Painting' },
+    { label: 'Digital Art', value: 'Digital Art' },
+    { label: 'Sketch', value: 'Sketch' },
+    { label: 'Other', value: 'Other' },
+  ]);
+
+  async function pickImage() {
     const res = await ImagePicker.launchImageLibraryAsync({ quality: 0.5 });
     if (res.canceled) return;
 
-    try {
-      setUploading(true);
+    const asset = res.assets[0];
+    setImageUri(asset.uri);
+  }
 
-      const asset = res.assets[0];
-      const blob = await fetch(asset.uri).then(r => r.blob());
+  async function uploadArtwork() {
+    if (!imageUri || !category || !title.trim()) {
+      Alert.alert('Missing Information', 'Please fill out all fields.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const blob = await fetch(imageUri).then(r => r.blob());
       const fileRef = ref(storage, `uploads/${Date.now()}.jpg`);
 
       await uploadBytes(fileRef, blob);
@@ -36,59 +48,117 @@ export default function UploadScreen() {
 
       await addDoc(collection(db, 'artworks'), {
         url,
+        title,
+        description,
         category,
-        ownerUid: 'anon', // 🔥 Later replace with auth.currentUser.uid
+        ownerUid: 'anon', // Later replace with real auth.currentUser.uid
         createdAt: serverTimestamp(),
       });
 
       console.log('✅ Uploaded successfully!');
-      Alert.alert('Success', 'Your artwork was uploaded!');
+      Alert.alert('Success', 'Artwork uploaded!');
+
+      // Clear form
+      setImageUri(null);
+      setTitle('');
+      setDescription('');
+      setCategory(null);
     } catch (error) {
       console.error('❌ Upload failed:', error);
-      Alert.alert('Failed to upload', (error as Error).message);
+      Alert.alert('Upload Failed', (error as Error).message);
     } finally {
-      setUploading(false);
+      setLoading(false);
     }
   }
 
+  const readyToUpload = imageUri && title.trim() && category && !loading;
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>Select a Category:</Text>
-
-      <Picker
-        selectedValue={category}
-        onValueChange={(value) => setCategory(value)}
-        style={styles.picker}
-      >
-        {categories.map((cat) => (
-          <Picker.Item key={cat.value} label={cat.label} value={cat.value} />
-        ))}
-      </Picker>
-
-      <Button
-        title={uploading ? 'Uploading...' : 'Pick Image & Upload'}
-        onPress={pickAndUpload}
-        disabled={uploading}
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.label}>Select Category:</Text>
+      <DropDownPicker
+        open={categoryOpen}
+        value={category}
+        items={categories}
+        setOpen={setCategoryOpen}
+        setValue={setCategory}
+        setItems={setCategories}
+        placeholder="Select a category..."
+        searchable={true}
+        style={styles.dropdown}
+        dropDownContainerStyle={{ borderColor: '#ccc' }}
       />
 
-      {uploading && <ActivityIndicator style={{ marginTop: 16 }} />}
-    </View>
+      <Text style={styles.label}>Title:</Text>
+      <TextInput
+        placeholder="Enter a title..."
+        value={title}
+        onChangeText={setTitle}
+        style={styles.input}
+      />
+
+      <Text style={styles.label}>Description:</Text>
+      <TextInput
+        placeholder="Enter a short description..."
+        value={description}
+        onChangeText={setDescription}
+        style={[styles.input, { height: 80 }]}
+        multiline
+      />
+
+      <Button
+        title={imageUri ? 'Change Image' : 'Pick an Image'}
+        onPress={pickImage}
+      />
+
+      {imageUri && (
+        <Image
+          source={{ uri: imageUri }}
+          style={styles.preview}
+          resizeMode="cover"
+        />
+      )}
+
+      <View style={{ marginTop: 24 }}>
+        <Button
+          title={loading ? 'Uploading...' : 'Upload Artwork'}
+          onPress={uploadArtwork}
+          disabled={!readyToUpload}
+        />
+        {loading && <ActivityIndicator style={{ marginTop: 16 }} />}
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    justifyContent: 'center',
     padding: 24,
+    paddingBottom: 80,
     backgroundColor: 'white',
   },
   label: {
-    fontSize: 18,
+    fontSize: 16,
     marginBottom: 8,
-    textAlign: 'center',
+    marginTop: 16,
   },
-  picker: {
-    marginBottom: 20,
+  dropdown: {
+    marginBottom: 12,
+    borderColor: '#ccc',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    backgroundColor: 'white',
+  },
+  preview: {
+    width: '100%',
+    height: 300,
+    borderRadius: 16,
+    marginTop: 16,
+    backgroundColor: '#eee',
   },
 });
