@@ -24,15 +24,18 @@ export default function ProfileScreen() {
   }, []);
 
   async function fetchMyArtworks() {
+    console.log('🔄 Fetching my artworks...');
     try {
       setLoading(true);
 
       const colRef = collection(db, 'artworks');
       const q = query(colRef, where('ownerUid', '==', 'anon'), orderBy('createdAt', 'desc'));
+
       const snapshot = await getDocs(q);
       const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
       console.log('👤 Loaded my artworks:', items.length);
+
       setArtworks(items as Artwork[]);
     } catch (error) {
       console.error('❌ Error loading my artworks:', error);
@@ -43,6 +46,7 @@ export default function ProfileScreen() {
   }
 
   const onRefresh = () => {
+    console.log('🔄 Pull-to-refresh triggered');
     setRefreshing(true);
     fetchMyArtworks();
   };
@@ -85,7 +89,7 @@ export default function ProfileScreen() {
           contentContainerStyle={{ paddingBottom: 120, paddingTop: 20 }}
           ListEmptyComponent={
             <View style={{ alignItems: 'center', marginTop: 40 }}>
-              <Text style={{ fontSize: 16, color: '#888' }}>No uploads yet.</Text>
+              <Text style={{ fontSize: 16, color: '#888' }}>No uploads found.</Text>
             </View>
           }
           renderItem={({ item }) => (
@@ -103,7 +107,6 @@ export default function ProfileScreen() {
               )}
               <Text style={styles.categoryLabel}>Category: {item.category}</Text>
 
-              {/* Delete Button */}
               <View style={{ marginTop: 12 }}>
                 <Button
                   title="Delete"
