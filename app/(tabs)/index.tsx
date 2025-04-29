@@ -1,97 +1,121 @@
-// app/(tabs)/index.tsx  ← Home / Feed tab
-import { useEffect, useState } from 'react';
-import { FlatList, Image, Text, View } from 'react-native';
-import {
-  collection,
-  query,
-  orderBy,
-  onSnapshot,
-  Timestamp,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase';         // <- the file you just made
-import { doc } from 'firebase/firestore';
+// app/(tabs)/feed.tsx
+import { View, Text, FlatList, Image, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useEffect, useState, useCallback } from 'react';
+import { Picker } from '@react-native-picker/picker';
 
-export function HomeScreen() {
-  useEffect(() => {
-    const unsub = onSnapshot(
-      doc(db, '__ping__/live'),
-      () => console.log('Firestore is reachable')
-    );
-    return unsub;
-  }, []);
+type Artwork = {
+  id: string;
+  url: string;
+  category: string;
+  ownerUid: string;
+  createdAt?: any;
+};
 
-  return (
-    <View>
-      <Text>Home screen</Text>
-    </View>
-  );
-}
+const CATEGORIES = ['All', 'Watercolor', 'Oil', 'Digital', 'Sketch', 'Other'];
+
 export default function FeedScreen() {
-  const [art, setArt] = useState<Artwork[]>([]);
+  const [artworks, setArtworks] = useState<Artwork[]>([]);
+  const [filteredArtworks, setFilteredArtworks] = useState<Artwork[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('All');
 
-  // 1.  Real-time listener: every DB change updates the feed instantly
   useEffect(() => {
     const q = query(
-      collection(db, 'artworks'),            // collection name
-      orderBy('createdAt', 'desc')           // newest first
+      collection(db, 'artworks'),
+      orderBy('createdAt', 'desc')
     );
 
-    // 2.  onSnapshot runs once (initial data) and
-    //     again whenever a document changes
-    return onSnapshot(q, snap => {
-      const items = snap.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          url: data.url,
-          category: data.category,
-          createdAt: (data.createdAt as Timestamp).toDate(),
-          ownerUid: data.ownerUid,
-        } as Artwork;
-      });
-      setArt(items);
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const items = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...(doc.data() as Omit<Artwork, 'id'>),
+      }));
+
+      setArtworks(items);
+      setLoading(false);
+    }, (error) => {
+      console.error('❌ Firestore error:', error);
+      Alert.alert('Error', 'Could not load feed.');
+      setLoading(false);
     });
+
+    return unsubscribe;
   }, []);
 
-  // 3.  Simple “mini card” renderer
-  function renderItem({ item }: { item: Artwork }) {
+  useEffect(() => {
+    if (selectedCategory === 'All') {
+      setFilteredArtworks(artworks);
+    } else {
+      setFilteredArtworks(
+        artworks.filter((item) => item.category === selectedCategory)
+      );
+    }
+  }, [artworks, selectedCategory]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    // Normally you'd refetch here but onSnapshot keeps it live,
+    // so we just timeout to simulate a refresh animation
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 800);
+  }, []);
+
+  if (loading) {
     return (
-      <View
-        style={{
-          margin: 8,
-          borderRadius: 8,
-          overflow: 'hidden',
-          backgroundColor: '#fff',
-          elevation: 2, // Android shadow
-        }}
-      >
-        <Image
-          source={{ uri: item.url }}
-          style={{ width: '100%', aspectRatio: 1 }}
-        />
-        <View style={{ padding: 8 }}>
-          <Text style={{ fontWeight: '600' }}>{item.category}</Text>
-          <Text style={{ color: '#888', fontSize: 12 }}>
-            {item.createdAt.toLocaleDateString()}
-          </Text>
-        </View>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  if (filteredArtworks.length === 0) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+        <Text style={{ fontSize: 16, color: '#666', textAlign: 'center' }}>
+          No artworks found.
+        </Text>
       </View>
     );
   }
 
   return (
-    <FlatList
-      data={art}
-      keyExtractor={item => item.id}
-      renderItem={renderItem}
-      contentContainerStyle={{ padding: 8 }}
-    />
+    <View style={{ flex: 1 }}>
+      <Picker
+        selectedValue={selectedCategory}
+        onValueChange={(value) => setSelectedCategory(value)}
+        style={{ margin: 12 }}
+      >
+        {CATEGORIES.map((cat) => (
+          <Picker.Item key={cat} label={cat} value={cat} />
+        ))}
+      </Picker>
+
+      <FlatList
+        data={filteredArtworks}
+        keyExtractor={(item) => item.id}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        contentContainerStyle={{ paddingVertical: 16 }}
+        renderItem={({ item }) => (
+          <View style={{ marginBottom: 24, paddingHorizontal: 16 }}>
+            <Image
+              source={{ uri: item.url }}
+              style={{ width: '100%', aspectRatio: 1, borderRadius: 12, backgroundColor: '#eee' }}
+              resizeMode="cover"
+              onError={(error) => console.warn('Image failed to load:', error.nativeEvent.error)}
+              defaultSource={require('@/assets/images/placeholder-image.png')} // you can add a simple placeholder in assets
+            />
+            <Text style={{ marginTop: 8, fontWeight: 'bold', fontSize: 16 }}>
+              {item.category}
+            </Text>
+          </View>
+        )}
+      />
+    </View>
   );
 }
-type Artwork = {
-  id: string;          // doc ID
-  url: string;         // downloadURL from Storage
-  category: string;    // 'watercolor', 'bead', etc.
-  createdAt: Date;     // when it was posted
-  ownerUid: string;    // who posted it (later)
-};

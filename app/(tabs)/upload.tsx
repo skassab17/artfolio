@@ -1,20 +1,29 @@
 // app/(tabs)/upload.tsx
 import { useState } from 'react';
-import { View, Button, Text, ActivityIndicator, Alert } from 'react-native';
+import { View, Button, Text, ActivityIndicator, Alert, Platform } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage, db } from '@/lib/firebase';
+import { storage } from '@/lib/firebase';
 import { FirebaseError } from 'firebase/app';
 
 export default function UploadScreen() {
   const [loading, setLoading] = useState(false);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [category, setCategory] = useState('watercolor');
+
+  const categories = [
+    'watercolor',
+    'bead',
+    'ink',
+    'digital',
+    'other',
+  ];
 
   async function pickAndUpload() {
     try {
       setLoading(true);
 
-      // Pick an image
       const res = await ImagePicker.launchImageLibraryAsync({ quality: 0.5 });
       if (res.canceled) {
         setLoading(false);
@@ -24,21 +33,15 @@ export default function UploadScreen() {
       const asset = res.assets[0];
       const blob = await fetch(asset.uri).then((r) => r.blob());
 
-      // Simulated user and category (later replace "anon" and "watercolor" dynamically)
-      const ownerUid = 'anon';          // TODO: Replace with real user UID
-      const category = 'watercolor';     // TODO: Replace with dynamic category
+      const ownerUid = 'anon';  // TODO: Replace with real user UID after login
       const timestamp = Date.now();
 
-      // Organized upload path
       const path = `artworks/${ownerUid}/${category}/${timestamp}.jpg`;
-
       const fileRef = ref(storage, path);
       console.log('📤 Uploading to:', fileRef.fullPath);
 
-      // Upload the blob
       await uploadBytes(fileRef, blob);
 
-      // Get download URL
       const url = await getDownloadURL(fileRef);
       console.log('✅ File uploaded! URL:', url);
 
@@ -58,12 +61,30 @@ export default function UploadScreen() {
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+      <Text style={{ fontSize: 18, marginBottom: 8 }}>Select a Category:</Text>
+      
+      {Platform.OS === 'ios' || Platform.OS === 'android' ? (
+        <Picker
+          selectedValue={category}
+          onValueChange={(itemValue) => setCategory(itemValue)}
+          style={{ width: 250, marginBottom: 24 }}
+        >
+          {categories.map((cat) => (
+            <Picker.Item key={cat} label={cat} value={cat} />
+          ))}
+        </Picker>
+      ) : (
+        <Text>Category: {category}</Text>
+      )}
+
       <Button
         title={loading ? 'Uploading...' : 'Pick & Upload'}
         onPress={pickAndUpload}
         disabled={loading}
       />
+
       {loading && <ActivityIndicator style={{ marginTop: 16 }} />}
+
       {fileUrl && (
         <>
           <Text style={{ marginTop: 20 }}>✅ Uploaded File:</Text>

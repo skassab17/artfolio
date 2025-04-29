@@ -29,13 +29,6 @@ export default function TabLayout() {
       <Tabs.Screen name="index"   options={{ title: 'Feed'   }} />
       <Tabs.Screen name="upload"  options={{ title: 'Upload' }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile'}} />
-      <Tabs.Screen
-  name="upload-test"
-  options={{
-    title: 'Upload Test',
-    tabBarIcon: ({ color }) => <IconSymbol size={28} name="arrow.up.circle.fill" color={color} />,
-  }}
-/>
     </Tabs>
   );
 }
