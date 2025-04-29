@@ -1,121 +1,103 @@
 // app/(tabs)/feed.tsx
-import { View, Text, FlatList, Image, ActivityIndicator, Alert, RefreshControl } from 'react-native';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import { View, FlatList, Text, Image, ActivityIndicator, RefreshControl } from 'react-native';
+import { collection, getDocs, orderBy, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useEffect, useState, useCallback } from 'react';
 import { Picker } from '@react-native-picker/picker';
 
-type Artwork = {
+interface Artwork {
   id: string;
   url: string;
   category: string;
   ownerUid: string;
-  createdAt?: any;
-};
-
-const CATEGORIES = ['All', 'Watercolor', 'Oil', 'Digital', 'Sketch', 'Other'];
+  createdAt: any;
+}
 
 export default function FeedScreen() {
   const [artworks, setArtworks] = useState<Artwork[]>([]);
-  const [filteredArtworks, setFilteredArtworks] = useState<Artwork[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [category, setCategory] = useState('All');
 
   useEffect(() => {
-    const q = query(
-      collection(db, 'artworks'),
-      orderBy('createdAt', 'desc')
-    );
+    fetchArtworks();
+  }, [category]);
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...(doc.data() as Omit<Artwork, 'id'>),
-      }));
-
-      setArtworks(items);
+  async function fetchArtworks() {
+    try {
+      setLoading(true);
+  
+      let q = collection(db, 'artworks');  // 🔵 This is CollectionReference
+  
+      const constraints = [];
+      if (category && category !== 'All') {
+        constraints.push(where('category', '==', category));
+      }
+      constraints.push(orderBy('createdAt', 'desc'));
+  
+      const queryRef = constraints.length > 0 ? query(q, ...constraints) : q;
+  
+      const snapshot = await getDocs(queryRef);
+      const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  
+      console.log('🎨 Loaded artworks:', items.length);
+      setArtworks(items as Artwork[]);
+    } catch (error) {
+      console.error('❌ Error loading artworks:', error);
+    } finally {
       setLoading(false);
-    }, (error) => {
-      console.error('❌ Firestore error:', error);
-      Alert.alert('Error', 'Could not load feed.');
-      setLoading(false);
-    });
-
-    return unsubscribe;
-  }, []);
-
-  useEffect(() => {
-    if (selectedCategory === 'All') {
-      setFilteredArtworks(artworks);
-    } else {
-      setFilteredArtworks(
-        artworks.filter((item) => item.category === selectedCategory)
-      );
-    }
-  }, [artworks, selectedCategory]);
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    // Normally you'd refetch here but onSnapshot keeps it live,
-    // so we just timeout to simulate a refresh animation
-    setTimeout(() => {
       setRefreshing(false);
-    }, 800);
-  }, []);
-
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    }
   }
 
-  if (filteredArtworks.length === 0) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-        <Text style={{ fontSize: 16, color: '#666', textAlign: 'center' }}>
-          No artworks found.
-        </Text>
-      </View>
-    );
-  }
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchArtworks();
+  };
 
   return (
     <View style={{ flex: 1 }}>
+      {/* Picker for category filter */}
       <Picker
-        selectedValue={selectedCategory}
-        onValueChange={(value) => setSelectedCategory(value)}
-        style={{ margin: 12 }}
+        selectedValue={category}
+        onValueChange={(value) => setCategory(value)}
+        style={{ marginHorizontal: 20, marginTop: 12 }}
       >
-        {CATEGORIES.map((cat) => (
-          <Picker.Item key={cat} label={cat} value={cat} />
-        ))}
+        <Picker.Item label="All" value="All" />
+        <Picker.Item label="Watercolor" value="Watercolor" />
+        <Picker.Item label="Oil Painting" value="Oil Painting" />
+        <Picker.Item label="Digital Art" value="Digital Art" />
+        {/* Add more categories as needed */}
       </Picker>
 
-      <FlatList
-        data={filteredArtworks}
-        keyExtractor={(item) => item.id}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        contentContainerStyle={{ paddingVertical: 16 }}
-        renderItem={({ item }) => (
-          <View style={{ marginBottom: 24, paddingHorizontal: 16 }}>
-            <Image
-              source={{ uri: item.url }}
-              style={{ width: '100%', aspectRatio: 1, borderRadius: 12, backgroundColor: '#eee' }}
-              resizeMode="cover"
-              onError={(error) => console.warn('Image failed to load:', error.nativeEvent.error)}
-              defaultSource={require('@/assets/images/placeholder-image.png')} // you can add a simple placeholder in assets
-            />
-            <Text style={{ marginTop: 8, fontWeight: 'bold', fontSize: 16 }}>
-              {item.category}
-            </Text>
-          </View>
-        )}
-      />
+      {/* Loading spinner */}
+      {loading ? (
+        <ActivityIndicator style={{ marginTop: 20 }} />
+      ) : (
+        <FlatList
+          data={artworks}
+          keyExtractor={(item) => item.id}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          contentContainerStyle={{ padding: 16 }}
+          ListEmptyComponent={
+            <View style={{ alignItems: 'center', marginTop: 40 }}>
+              <Text style={{ fontSize: 16, color: '#888' }}>No artworks found.</Text>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <View style={{ marginBottom: 20, alignItems: 'center' }}>
+              <Image
+                source={{ uri: item.url }}
+                style={{ width: 300, height: 300, borderRadius: 16 }}
+                resizeMode="cover"
+              />
+              <Text style={{ marginTop: 8, fontSize: 16 }}>{item.category}</Text>
+            </View>
+          )}
+        />
+      )}
     </View>
   );
 }
