@@ -1,17 +1,18 @@
 // app/(tabs)/profile.tsx
 import { useEffect, useState } from 'react';
-import { View, FlatList, Text, Image, Button, Alert, ActivityIndicator, RefreshControl, StyleSheet } from 'react-native';
+import { View, Text, FlatList, Image, Button, Alert, ActivityIndicator, RefreshControl } from 'react-native';
 import { collection, deleteDoc, doc, getDocs, orderBy, query, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
+import { deleteObject, ref } from 'firebase/storage';
 
 interface Artwork {
   id: string;
   url: string;
+  category: string;
   title?: string;
   description?: string;
-  category: string;
-  ownerUid: string;
   createdAt: any;
+  ownerUid: string;
 }
 
 export default function ProfileScreen() {
@@ -24,19 +25,16 @@ export default function ProfileScreen() {
   }, []);
 
   async function fetchMyArtworks() {
-    console.log('🔄 Fetching my artworks...');
     try {
       setLoading(true);
-
       const colRef = collection(db, 'artworks');
       const q = query(colRef, where('ownerUid', '==', 'anon'), orderBy('createdAt', 'desc'));
 
       const snapshot = await getDocs(q);
-      const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Artwork));
 
       console.log('👤 Loaded my artworks:', items.length);
-
-      setArtworks(items as Artwork[]);
+      setArtworks(items);
     } catch (error) {
       console.error('❌ Error loading my artworks:', error);
     } finally {
@@ -45,75 +43,80 @@ export default function ProfileScreen() {
     }
   }
 
+  async function deleteArtwork(item: Artwork) {
+    Alert.alert('Delete?', 'Are you sure you want to delete this artwork?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const docRef = doc(db, 'artworks', item.id);
+            await deleteDoc(docRef);
+            console.log('🗑️ Firestore document deleted.');
+
+            // Also delete Storage file
+            const decodedUrl = decodeURIComponent(item.url.split('?')[0]);
+            const storagePath = decodedUrl.split('/o/')[1];
+            const fileRef = ref(storage, storagePath);
+
+            await deleteObject(fileRef);
+            console.log('🗑️ Storage file deleted.');
+
+            // Refresh list
+            fetchMyArtworks();
+          } catch (error) {
+            console.error('❌ Error deleting artwork:', error);
+            Alert.alert('Failed to delete artwork.');
+          }
+        },
+      },
+    ]);
+  }
+
   const onRefresh = () => {
-    console.log('🔄 Pull-to-refresh triggered');
     setRefreshing(true);
     fetchMyArtworks();
   };
 
-  async function handleDeleteArtwork(id: string) {
-    Alert.alert(
-      'Delete Artwork',
-      'Are you sure you want to delete this artwork?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteDoc(doc(db, 'artworks', id));
-              console.log('🗑️ Artwork deleted:', id);
-              fetchMyArtworks(); // Refresh after delete
-            } catch (error) {
-              console.error('❌ Error deleting artwork:', error);
-              Alert.alert('Error', 'Failed to delete artwork.');
-            }
-          }
-        }
-      ]
-    );
-  }
-
   return (
-    <View style={styles.container}>
+    <View style={{ flex: 1, padding: 16 }}>
+      {/* Profile Info */}
+      <View style={{ alignItems: 'center', marginBottom: 20 }}>
+        <Text style={{ fontSize: 24, fontWeight: 'bold' }}>@anon</Text>
+        <Text style={{ fontSize: 16, color: '#666', marginTop: 4 }}>
+          {artworks.length} {artworks.length === 1 ? 'upload' : 'uploads'}
+        </Text>
+      </View>
+
+      {/* Uploads */}
       {loading ? (
         <ActivityIndicator style={{ marginTop: 20 }} />
       ) : (
         <FlatList
           data={artworks}
           keyExtractor={(item) => item.id}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          contentContainerStyle={{ paddingBottom: 120, paddingTop: 20 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          contentContainerStyle={{ paddingBottom: 100 }}
           ListEmptyComponent={
             <View style={{ alignItems: 'center', marginTop: 40 }}>
-              <Text style={{ fontSize: 16, color: '#888' }}>No uploads found.</Text>
+              <Text style={{ fontSize: 16, color: '#888' }}>No uploads yet.</Text>
             </View>
           }
           renderItem={({ item }) => (
-            <View style={styles.card}>
+            <View style={{ marginBottom: 20, alignItems: 'center' }}>
               <Image
                 source={{ uri: item.url }}
-                style={styles.image}
+                style={{ width: 300, height: 300, borderRadius: 16 }}
                 resizeMode="cover"
               />
-              {item.title && (
-                <Text style={styles.title}>{item.title}</Text>
-              )}
-              {item.description && (
-                <Text style={styles.description}>{item.description}</Text>
-              )}
-              <Text style={styles.categoryLabel}>Category: {item.category}</Text>
-
-              <View style={{ marginTop: 12 }}>
-                <Button
-                  title="Delete"
-                  color="#d9534f"
-                  onPress={() => handleDeleteArtwork(item.id)}
-                />
-              </View>
+              <Text style={{ marginTop: 8, fontSize: 16 }}>{item.title || 'Untitled'}</Text>
+              <Text style={{ marginTop: 4, fontSize: 14, color: '#666' }}>{item.category}</Text>
+              <Button
+                title="Delete"
+                onPress={() => deleteArtwork(item)}
+                color="red"
+              />
             </View>
           )}
         />
@@ -121,37 +124,3 @@ export default function ProfileScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'white',
-  },
-  card: {
-    marginBottom: 20,
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  image: {
-    width: 300,
-    height: 300,
-    borderRadius: 16,
-  },
-  title: {
-    marginTop: 12,
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  description: {
-    marginTop: 4,
-    fontSize: 14,
-    color: '#555',
-    textAlign: 'center',
-    paddingHorizontal: 8,
-  },
-  categoryLabel: {
-    marginTop: 8,
-    fontSize: 12,
-    color: '#888',
-  },
-});
