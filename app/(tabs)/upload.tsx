@@ -12,6 +12,7 @@ export default function UploadScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [project, setProject] = useState('');
 
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [category, setCategory] = useState<string | null>(null);
@@ -32,7 +33,7 @@ export default function UploadScreen() {
   }
 
   async function uploadArtwork() {
-    if (!imageUri || !category || !title.trim()) {
+    if (!imageUri || !category || !title.trim() || !project.trim()) {
       Alert.alert('Missing Information', 'Please fill out all fields.');
       return;
     }
@@ -50,8 +51,9 @@ export default function UploadScreen() {
         url,
         title,
         description,
-        category,
-        ownerUid: 'anon', // will replace with real user later
+        hobby: category,  // ✅ save under `hobby` instead of `category`
+        project,          // ✅ new field for project
+        ownerUid: 'anon', // will replace later with real auth
         createdAt: serverTimestamp(),
       });
 
@@ -62,6 +64,7 @@ export default function UploadScreen() {
       setImageUri(null);
       setTitle('');
       setDescription('');
+      setProject('');
       setCategory(null);
     } catch (error) {
       console.error('❌ Upload failed:', error);
@@ -71,16 +74,16 @@ export default function UploadScreen() {
     }
   }
 
-  const readyToUpload = imageUri && title.trim() && category && !loading;
+  const readyToUpload = imageUri && title.trim() && category && project.trim() && !loading;
 
   return (
     <FlatList
       data={[]} // Still empty (only using ListHeaderComponent)
-      renderItem={null} // ✅ tell FlatList explicitly
-      keyExtractor={() => 'dummy'} // no real items
+      renderItem={null}
+      keyExtractor={() => 'dummy'}
       ListHeaderComponent={
         <View style={styles.container}>
-          <Text style={styles.label}>Select Category:</Text>
+          <Text style={styles.label}>Select Hobby:</Text>
           <DropDownPicker
             open={categoryOpen}
             value={category}
@@ -88,15 +91,23 @@ export default function UploadScreen() {
             setOpen={setCategoryOpen}
             setValue={setCategory}
             setItems={setCategories}
-            placeholder="Select a category..."
+            placeholder="Select a hobby..."
             searchable={true}
             style={styles.dropdown}
             dropDownContainerStyle={{ borderColor: '#ccc' }}
           />
 
+          <Text style={styles.label}>Project Name:</Text>
+          <TextInput
+            placeholder="Enter project name (ex: Sunset Study)"
+            value={project}
+            onChangeText={setProject}
+            style={styles.input}
+          />
+
           <Text style={styles.label}>Title:</Text>
           <TextInput
-            placeholder="Enter a title..."
+            placeholder="Enter a title for this upload..."
             value={title}
             onChangeText={setTitle}
             style={styles.input}

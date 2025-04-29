@@ -1,6 +1,6 @@
 // app/(tabs)/profile.tsx
 import { useEffect, useState } from 'react';
-import { View, Text, FlatList, Image, Button, Alert, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, FlatList, Image, Button, Alert, ActivityIndicator, RefreshControl, SafeAreaView } from 'react-native';
 import { collection, deleteDoc, doc, getDocs, orderBy, query, where } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { deleteObject, ref } from 'firebase/storage';
@@ -29,7 +29,6 @@ export default function ProfileScreen() {
       setLoading(true);
       const colRef = collection(db, 'artworks');
       const q = query(colRef, where('ownerUid', '==', 'anon'), orderBy('createdAt', 'desc'));
-
       const snapshot = await getDocs(q);
       const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Artwork));
 
@@ -63,7 +62,6 @@ export default function ProfileScreen() {
             await deleteObject(fileRef);
             console.log('🗑️ Storage file deleted.');
 
-            // Refresh list
             fetchMyArtworks();
           } catch (error) {
             console.error('❌ Error deleting artwork:', error);
@@ -80,16 +78,14 @@ export default function ProfileScreen() {
   };
 
   return (
-    <View style={{ flex: 1, padding: 16 }}>
-      {/* Profile Info */}
-      <View style={{ alignItems: 'center', marginBottom: 20 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+      <View style={{ alignItems: 'center', marginTop: 20, marginBottom: 20 }}>
         <Text style={{ fontSize: 24, fontWeight: 'bold' }}>@anon</Text>
         <Text style={{ fontSize: 16, color: '#666', marginTop: 4 }}>
           {artworks.length} {artworks.length === 1 ? 'upload' : 'uploads'}
         </Text>
       </View>
 
-      {/* Uploads */}
       {loading ? (
         <ActivityIndicator style={{ marginTop: 20 }} />
       ) : (
@@ -97,7 +93,7 @@ export default function ProfileScreen() {
           data={artworks}
           keyExtractor={(item) => item.id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          contentContainerStyle={{ paddingBottom: 100 }}
+          contentContainerStyle={{ padding: 16 }}
           ListEmptyComponent={
             <View style={{ alignItems: 'center', marginTop: 40 }}>
               <Text style={{ fontSize: 16, color: '#888' }}>No uploads yet.</Text>
@@ -121,6 +117,6 @@ export default function ProfileScreen() {
           )}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
