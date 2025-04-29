@@ -63,9 +63,9 @@ export default function FeedScreen() {
     : [];
 
   return (
-    <View style={{ flex: 1, paddingHorizontal: 20 }}>
+    <View style={styles.container}>
       {/* TextInput for category search */}
-      <View style={{ marginTop: 12 }}>
+      <View style={styles.searchSection}>
         <TextInput
           placeholder="Filter by category..."
           value={categoryInput}
@@ -90,6 +90,7 @@ export default function FeedScreen() {
         )}
       </View>
 
+      {/* Artworks */}
       {loading ? (
         <ActivityIndicator style={{ marginTop: 20 }} />
       ) : (
@@ -99,7 +100,7 @@ export default function FeedScreen() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
-          contentContainerStyle={{ paddingVertical: 16 }}
+          contentContainerStyle={{ paddingBottom: 100 }}
           ListEmptyComponent={
             <View style={{ alignItems: 'center', marginTop: 40 }}>
               <Text style={{ fontSize: 16, color: '#888' }}>No artworks found.</Text>
@@ -128,15 +129,25 @@ export default function FeedScreen() {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  searchSection: {
+    paddingHorizontal: 20,
+    paddingTop: 60,   // 🧹 Pushes it DOWN from the top
+    marginBottom: 10, // 🧹 Space before list starts
+  },
   input: {
     height: 40,
     borderColor: '#ccc',
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
-    marginBottom: 8,
+    backgroundColor: '#f9f9f9',
   },
   dropdown: {
+    marginTop: 4,
     backgroundColor: '#fff',
     borderColor: '#ccc',
     borderWidth: 1,
