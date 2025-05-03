@@ -33,8 +33,11 @@ export default function UploadScreen() {
   }
 
   async function uploadArtwork() {
-    if (!imageUri || !category || !title.trim() || !project.trim()) {
-      Alert.alert('Missing Information', 'Please fill out all fields.');
+    if (!imageUri || !category || !title.trim()) {
+      Alert.alert(
+        'Missing Information',
+        'Please pick an image, select a hobby, and enter a title.'
+      );
       return;
     }
 
@@ -51,9 +54,10 @@ export default function UploadScreen() {
         url,
         title,
         description,
-        hobby: category,  // ✅ save under `hobby` instead of `category`
-        project,          // ✅ new field for project
-        ownerUid: 'anon', // will replace later with real auth
+        category: category,
+        // only add project if the user actually typed something
+        ...(project.trim() ? { project: project.trim() } : {}),
+        ownerUid: 'anon',
         createdAt: serverTimestamp(),
       });
 
@@ -74,7 +78,7 @@ export default function UploadScreen() {
     }
   }
 
-  const readyToUpload = imageUri && title.trim() && category && project.trim() && !loading;
+  const readyToUpload = imageUri && title.trim() && category && !loading;
 
   return (
     <FlatList
@@ -99,7 +103,7 @@ export default function UploadScreen() {
 
           <Text style={styles.label}>Project Name:</Text>
           <TextInput
-            placeholder="Enter project name (ex: Sunset Study)"
+            placeholder="Project name (optional)"
             value={project}
             onChangeText={setProject}
             style={styles.input}
