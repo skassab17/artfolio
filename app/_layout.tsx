@@ -16,7 +16,7 @@ export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     Caveat: require('../assets/fonts/Caveat.ttf'),
-    Roboto: require('@/assests/fonts/Roboto-VariableFont_wdth,wght.ttf')
+    Roboto: require('@/assets/fonts/Roboto-VariableFont_wdth,wght.ttf')
   });
 
   useEffect(() => {

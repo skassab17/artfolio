@@ -56,9 +56,9 @@ const styles = StyleSheet.create({
   container: {
     position: 'relative',
     flexBasis: '33.33%',
-    marginHorizontal: 8,
-    borderRadius: 8,
-    backgroundColor: themecolors.neutralLight,
+    borderRadius: 0,
+    borderWidth:2,
+    borderColor: themecolors.neutralLight,
     overflow: 'hidden',
     elevation: 1,
   },

@@ -11,30 +11,15 @@ import { Feather } from "@expo/vector-icons";
 
 // Extracted UI components
 import Polaroid from '@/components/profilescreen/Polaroid';
-import { PaperHeader } from '@/components/profilescreen/PaperHeader';
 import TabNote from '@/components/profilescreen/TabNote';
+import Section from '@/components/profilescreen/Section';
 
 // Extracted hooks
 import { useWhiteboard } from '@/hooks/ProfileHooks/useWhiteboard';
 import { useTabs } from '@/hooks/ProfileHooks/useTabs';
 
-/* ────────────────────────────────────────────────────────────── */
-/*  Types                                                        */
-/* ────────────────────────────────────────────────────────────── */
-interface Artwork {
-  id: string;
-  url: string;
-  category: string;
-  project?: string;
-  title?: string;
-  description?: string;
-  createdAt: any;
-  ownerUid: string;
-}
-
-/* ────────────────────────────────────────────────────────────── */
-/*  Profile Bar Options                                                   */
-/* ────────────────────────────────────────────────────────────── */
+// Extracted types
+import type { Artwork } from '@/app/types/artwork';
 
 /* ────────────────────────────────────────────────────────────── */
 /*  ProfileScreen                                                */
@@ -206,6 +191,14 @@ const toggleSection = (title: string) => {
     return result;
   }, [filteredArtworks]);
 
+  useEffect(() => {
+    const initial = sections.reduce((acc, sec) => {
+      acc[sec.title] = true;
+      return acc;
+    }, {} as Record<string, boolean>);
+    setExpandedSections(initial);
+  }, [sections]);
+
   /* Render uploads tab */
   const renderUploadsTab = () => (
     <>
@@ -273,61 +266,16 @@ const toggleSection = (title: string) => {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          {sections.map((sec,idx) => (
-            <View key={sec.title} style={styles.sectionContainer}>
-                <View style={styles.sectionHeaderRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <PaperHeader title={sec.title} idx={idx}   onEdit={() => {
-                      setEditingProject(sec.title);
-                      setNewProjectName(sec.title);
-                    }}/>
-                </View>
-                {sec.data.length > 3 && (
-                  <Pressable
-                    style={styles.toggleButton}
-                    onPress={() => toggleSection(sec.title)}
-                  >
-                    <Text style={styles.toggleButtonText}>
-                      {expandedSections[sec.title] ? '-' : '+'}
-                    </Text>
-                  </Pressable>
-                )}
-              </View>
-      
-              {expandedSections[sec.title] ? (
-                // ▶ Expanded: full 3-column grid
-                <View style={styles.gridContainer}>
-                  {sec.data.map(item => (
-                    <Polaroid
-                      key={`${sec.title}-${item.id}`}
-                      uri={item.url}
-                      caption={item.title}
-                      date={item.createdAt.toDate().toLocaleDateString()}
-                      onPress={() => setZoomedArtwork(item)}
-                      onLongPress={() => deleteArtwork(item)}
-                    />
-                  ))}
-                </View>
-              ) : (
-              <FlatList
-                data={sec.data}
-                horizontal
-                //numColumns={3}
-                contentContainerStyle={styles.cardRow}
-                keyExtractor={(item) => `${sec.title}-${item.id}`}
-                renderItem={({ item }) => (
-                  <Polaroid
-                    uri={item.url}
-                    caption={item.title}
-                    date={item.createdAt.toDate().toLocaleDateString()}
-                    onPress={() => setZoomedArtwork(item)}
-                    onLongPress={() => deleteArtwork(item)}
-                  />
-                )}
-                showsHorizontalScrollIndicator={false}
-              />
-              )}
-            </View>
+          {sections.map(sec => (
+            <Section
+              key={sec.title}
+              title={sec.title}
+              data={sec.data}
+              expanded={expandedSections[sec.title]}
+              onToggle={() => toggleSection(sec.title)}
+              onItemPress={setZoomedArtwork}
+              onItemLongPress={deleteArtwork}
+            />
           ))}
         </ScrollView>
       )}
@@ -753,8 +701,8 @@ const styles = StyleSheet.create({
   },
 
   /* Sections */
-  sectionContainer: { marginBottom: 24 },
-  sectionHeader: { fontSize: 18, fontWeight: '600', marginLeft: 12, marginBottom: 8 },
+  sectionContainer: { marginBottom: 0 },
+  sectionHeader: { fontSize: 18, fontWeight: '600', marginLeft: 0, marginBottom: 0 },
 
   /* Header & Tabs */
   header: { alignItems: 'center', marginTop: 20, marginBottom: 12 },
@@ -852,7 +800,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
+    paddingHorizontal: 0,
   },
   gridItemFull: {
     width: '30%',
