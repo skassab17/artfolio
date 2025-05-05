@@ -24,3 +24,17 @@ export const Colors = {
     tabIconSelected: tintColorDark,
   },
 };
+
+export const themecolors = {
+  background:    "#F5F1E9",  // off-white “paper”
+  primary:       "#D08E60",  // terracotta
+  accent:        "#7A5F3C",  // muted forest green
+  neutralLight:  "#FFFFFF",
+  textPrimary:   "#333333",
+  textSecondary: "#666666",
+};
+
+export const typography = {
+  header: { fontFamily: "Caveat", fontSize: 20 , fontweight: "bold"},
+  body:   { fontFamily: "Roboto", fontSize: 16 },
+};

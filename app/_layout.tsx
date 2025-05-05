@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
-import { useColorScheme } from '../hooks/useColorScheme';
+import { useColorScheme } from '@/hooks/ExpoHooks/useColorScheme';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -15,6 +15,8 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    Caveat: require('../assets/fonts/Caveat.ttf'),
+    Roboto: require('@/assests/fonts/Roboto-VariableFont_wdth,wght.ttf')
   });
 
   useEffect(() => {

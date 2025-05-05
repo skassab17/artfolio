@@ -1,36 +1,22 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-  Alert,
-  ActivityIndicator,
-  FlatList,
-  Image,
-  Pressable,
-  RefreshControl,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  View,
-  Modal,
-  ScrollView,
-  TextInput,
-  Button,
-  StyleProp,
-  ViewStyle,
-} from 'react-native';
+import {Alert, ActivityIndicator, FlatList, Image, Pressable, RefreshControl, SafeAreaView, StyleSheet, Text, View, Modal, ScrollView, TextInput, Button, StyleProp, ViewStyle, LayoutChangeEvent, } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
-import {
-  collection,
-  deleteDoc,
-  getDocs,
-  orderBy,
-  query,
-  where,
-  updateDoc,
-  doc as firestoreDoc,
-} from 'firebase/firestore';
+import { collection, deleteDoc, getDocs, orderBy, query, where, updateDoc, doc as firestoreDoc, writeBatch, doc, serverTimestamp, addDoc} from 'firebase/firestore';
 import { deleteObject, ref } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { ImageBackground } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { themecolors, typography } from "@/constants/Colors";
+import { Feather } from "@expo/vector-icons";
+
+// Extracted UI components
+import Polaroid from '@/components/profilescreen/Polaroid';
+import { PaperHeader } from '@/components/profilescreen/PaperHeader';
+import TabNote from '@/components/profilescreen/TabNote';
+
+// Extracted hooks
+import { useWhiteboard } from '@/hooks/ProfileHooks/useWhiteboard';
+import { useTabs } from '@/hooks/ProfileHooks/useTabs';
 
 /* ────────────────────────────────────────────────────────────── */
 /*  Types                                                        */
@@ -47,36 +33,8 @@ interface Artwork {
 }
 
 /* ────────────────────────────────────────────────────────────── */
-/*  Polaroid Component                                           */
+/*  Profile Bar Options                                                   */
 /* ────────────────────────────────────────────────────────────── */
-function Polaroid({
-  uri,
-  caption,
-  onPress,
-  onLongPress,
-  style,
-}: {
-  uri: string;
-  caption?: string;
-  onPress: () => void;
-  onLongPress?: () => void;
-  style?: StyleProp<ViewStyle>;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      onLongPress={onLongPress}
-      style={[styles.polaroidContainer, style]}
-    >
-      <Image source={{ uri }} style={styles.polaroidImage} />
-      {caption != null && (
-        <Text numberOfLines={1} style={styles.polaroidCaption}>
-          {caption}
-        </Text>
-      )}
-    </Pressable>
-  );
-}
 
 /* ────────────────────────────────────────────────────────────── */
 /*  ProfileScreen                                                */
@@ -89,6 +47,11 @@ export default function ProfileScreen() {
   const [editingItem, setEditingItem] = useState<Artwork | null>(null);
   const [zoomLoading, setZoomLoading] = useState(false);
   const [editCategoryOpen, setEditCategoryOpen] = useState(false);
+  const insets = useSafeAreaInsets();
+
+  // which project are we renaming, and the draft name
+const [editingProject, setEditingProject]   = useState<string|null>(null);
+const [newProjectName,  setNewProjectName]  = useState<string>('');
 
   /* Data state */
   const [artworks, setArtworks] = useState<Artwork[]>([]);
@@ -116,9 +79,6 @@ const toggleSection = (title: string) => {
 };
 
   /* Load artworks on mount and on tab switch */
-  useEffect(() => {
-    fetchMyArtworks();
-  }, []);
   useEffect(() => {
     if (activeTab === 'uploads') {
       fetchMyArtworks();
@@ -233,7 +193,7 @@ const toggleSection = (title: string) => {
     );
     const result: { title: string; data: Artwork[] }[] = [];
     const oneOffs = sorted.filter((a) => !a.project);
-    if (oneOffs.length) result.push({ title: 'One-offs', data: oneOffs });
+    if (oneOffs.length) result.push({ title: 'Loose Ends', data: oneOffs });
     const projects = Array.from(
       new Set(sorted.filter((a) => !!a.project).map((a) => a.project!))
     );
@@ -250,9 +210,15 @@ const toggleSection = (title: string) => {
   const renderUploadsTab = () => (
     <>
       <View style={styles.filterContainer}>
+      <ImageBackground
+          source={require('@/assets/images/plank.png')}
+          style={styles.filterPlank}
+          imageStyle={{ resizeMode: 'stretch' }}
+        >
         <TextInput
           style={styles.filterInput}
-          placeholder="All"
+          placeholder="Hobby Filters"
+          placeholderTextColor={"#777"}
           value={filterText}
           onFocus={() => setShowSuggestions(true)}
           onChangeText={(text) => {
@@ -261,6 +227,7 @@ const toggleSection = (title: string) => {
             setShowSuggestions(text.length > 0);
           }}
         />
+        </ImageBackground>
         {showSuggestions && (
           <ScrollView style={styles.suggestionsList}>
             <Pressable
@@ -306,10 +273,15 @@ const toggleSection = (title: string) => {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          {sections.map((sec) => (
+          {sections.map((sec,idx) => (
             <View key={sec.title} style={styles.sectionContainer}>
-              <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionHeader}>{sec.title}</Text>
+                <View style={styles.sectionHeaderRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <PaperHeader title={sec.title} idx={idx}   onEdit={() => {
+                      setEditingProject(sec.title);
+                      setNewProjectName(sec.title);
+                    }}/>
+                </View>
                 {sec.data.length > 3 && (
                   <Pressable
                     style={styles.toggleButton}
@@ -321,6 +293,7 @@ const toggleSection = (title: string) => {
                   </Pressable>
                 )}
               </View>
+      
               {expandedSections[sec.title] ? (
                 // ▶ Expanded: full 3-column grid
                 <View style={styles.gridContainer}>
@@ -329,6 +302,7 @@ const toggleSection = (title: string) => {
                       key={`${sec.title}-${item.id}`}
                       uri={item.url}
                       caption={item.title}
+                      date={item.createdAt.toDate().toLocaleDateString()}
                       onPress={() => setZoomedArtwork(item)}
                       onLongPress={() => deleteArtwork(item)}
                     />
@@ -338,11 +312,14 @@ const toggleSection = (title: string) => {
               <FlatList
                 data={sec.data}
                 horizontal
+                //numColumns={3}
+                contentContainerStyle={styles.cardRow}
                 keyExtractor={(item) => `${sec.title}-${item.id}`}
                 renderItem={({ item }) => (
                   <Polaroid
                     uri={item.url}
                     caption={item.title}
+                    date={item.createdAt.toDate().toLocaleDateString()}
                     onPress={() => setZoomedArtwork(item)}
                     onLongPress={() => deleteArtwork(item)}
                   />
@@ -356,47 +333,174 @@ const toggleSection = (title: string) => {
       )}
     </>
   );
- 
+
+  //Render TO DO 
+  const [tasks, setTasks] = useState<{ id: string; title: string; completed: boolean }[]>([]);
+  const [newTask, setNewTask] = useState('');
+  // which task is being edited right now?
+const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+// the draft text for that task
+const [editingTaskText, setEditingTaskText] = useState('');
+
+  useEffect(() => { fetchTasks(); }, []);
+
+  async function fetchTasks() {
+    const snap = await getDocs(
+      query(collection(db, 'todos'), orderBy('createdAt', 'asc'))
+    );
+    setTasks(snap.docs.map(d => ({
+      id: d.id,
+      title: d.data().title as string,
+      completed: d.data().completed as boolean,
+    })));
+  }
+
+  async function addTask() {
+    if (!newTask.trim()) return;
+    await addDoc(collection(db, 'todos'), {
+      title: newTask.trim(),
+      completed: false,
+      createdAt: serverTimestamp(),
+    });
+    setNewTask('');
+    fetchTasks();
+  }
+
+  async function toggleComplete(task: { id: string; completed: boolean }) {
+    await updateDoc(doc(db, 'todos', task.id), {
+      completed: !task.completed,
+    });
+    fetchTasks();
+  }
+
+  async function deleteTask(id: string) {
+    await deleteDoc(doc(db, 'todos', id));
+    fetchTasks();
+  }
+  const renderToDoTab = () => (
+        
+          <SafeAreaView style={{ flex: 1, padding: 16,margin: 19 }}>
+             <ImageBackground
+                source={require('@/assets/images/ToDo-bg.png')}
+                style={{ flex: 1,    shadowOpacity: .8,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowRadius: 2, }}
+                imageStyle={{ resizeMode: 'cover' }}
+              >
+            {/* Add-task row */}
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.taskinput}
+                placeholder="Add Task Here ..."
+                value={newTask}
+                onChangeText={setNewTask}
+              />
+                <Pressable style={styles.addButton} onPress={addTask}>
+                  <Text style={styles.addButtonText}>＋</Text>
+                 </Pressable>
+            </View>
+        
+            {/* Task list */}
+            <FlatList
+              data={tasks}
+              keyExtractor={t => t.id}
+              renderItem={({ item }) => (
+                      <View style={styles.taskRow}>
+                      {/* 1) Checkbox */}
+                      <Pressable onPress={() => toggleComplete(item)}>
+                        <Text style={item.completed ? styles.taskDone : styles.taskText}>
+                          {item.completed ? '☑' : '☐'}
+                        </Text>
+                      </Pressable>
+                
+                      {/* 2) Title or Editor */}
+                      {editingTaskId === item.id ? (
+                        <TextInput
+                          style={[styles.taskText, styles.taskInput]}
+                          value={editingTaskText}
+                          onChangeText={setEditingTaskText}
+                          autoFocus
+                          onBlur={async () => {
+                            // commit change on blur
+                            if (editingTaskText.trim() && editingTaskText !== item.title) {
+                              await updateDoc(doc(db,'todos',item.id), {
+                                title: editingTaskText.trim()
+                              });
+                              fetchTasks();
+                            }
+                            setEditingTaskId(null);
+                          }}
+                          onSubmitEditing={async () => {
+                            // also commit on enter
+                            if (editingTaskText.trim() && editingTaskText !== item.title) {
+                              await updateDoc(doc(db,'todos',item.id), {
+                                title: editingTaskText.trim()
+                              });
+                              fetchTasks();
+                            }
+                            setEditingTaskId(null);
+                          }}
+                        />
+                      ) : (
+                        <Pressable
+                          style={styles.taskTitleContainer}
+                          onPress={() => {
+                            setEditingTaskId(item.id);
+                            setEditingTaskText(item.title);
+                          }}
+                        >
+                          <Text style={item.completed ? styles.taskDone : styles.taskText}>
+                            {item.title}
+                          </Text>
+                        </Pressable>
+                      )}
+                
+                      {/* 3) Delete */}
+                      <Pressable onPress={() => deleteTask(item.id)}>
+                        <Text style={styles.delete}>❌</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                />
+            </ImageBackground>
+          </SafeAreaView>
+        );
   
   /* Main render */
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-      {/* Zoom modal */}
- {/* Combined Zoom + Edit Modal */}
-      {zoomedArtwork && (
-        <Modal
-          transparent
-          animationType="fade"
-          visible
-          onRequestClose={() => setZoomedArtwork(null)}
-        >
-          {/* 1) Full‐screen backdrop: tap anywhere to cancel zoom (unless editing) */}
-          <Pressable
-            style={styles.modalBackground}
-            onPress={() => {
-              if (!editingItem) {
-                // only close if not in edit mode
-                requestAnimationFrame(() => setZoomedArtwork(null));
-              }
-            }}
-          />
-
-          {/* 2) Centered content */}
-          <View style={styles.modalOverlay}>
-            {zoomLoading && (
+      <View style={{ flex: 1 }}>
+        {/* Combined Zoom + Edit Modal (unchanged) */}
+        {zoomedArtwork && (
+          <Modal
+            transparent
+            animationType="fade"
+            visible
+            onRequestClose={() => setZoomedArtwork(null)}
+          >
+            <Pressable
+              style={styles.modalBackground}
+              onPress={() => {
+                if (!editingItem) {
+                  requestAnimationFrame(() => setZoomedArtwork(null));
+                }
+              }}
+            />
+            <View style={styles.modalOverlay}>
+              {zoomLoading && (
                 <ActivityIndicator
                   size="large"
                   color="#fff"
                   style={styles.modalSpinner}
                 />
               )}
-
-            {editingItem ? (
-              // ── EDIT FORM ──────────────────────────
-              <View style={[styles.editModal, { backgroundColor: 'white' }]}>
-                <Polaroid 
+              {editingItem ? (
+                /* EDIT FORM */
+                <View style={[styles.editModal, { backgroundColor: 'white' }]}>
+                                  <Polaroid 
                   uri={editingItem.url}
                   caption={editingItem.title}
+                  date={editingItem.createdAt.toDate().toLocaleDateString()}
                   onPress={() => {}}
                   onLongPress={() => {}}
                   style={styles.miniPolaroid}
@@ -464,144 +568,177 @@ const toggleSection = (title: string) => {
                     }}
                   />
                 </View>
-              </View>
-            ) : (
-              // ── ZOOMED IMAGE + PENCIL ─────────────────
-              <>
-                <Image
-                  source={{ uri: zoomedArtwork.url }}
-                  style={styles.modalImage}
-                  resizeMode="contain"
-                  onLoadStart={() => setZoomLoading(true)}
-                  onLoadEnd={() => setZoomLoading(false)}
-                />
-
-                <Pressable
-                  style={styles.modalEditButton}
-                  onPress={() => {
-                    setEditingItem(zoomedArtwork);
-                  }}
-                >
-                  <Text style={[styles.modalEditText, { fontSize: 28 }]}>
-                    ✏️
-                  </Text>
-                </Pressable>
-              {/* ← Back button in bottom-left */}
-                <Pressable
-                  style={styles.modalBackButton}
-                  onPress={() => setZoomedArtwork(null)}
-                >
-                  <Text style={styles.modalBackText}>← Back</Text>
-                </Pressable>
-              </>
-            )}
-          </View>
-        </Modal>
-      )}
-
-      {/* Header & Tab Bar */}
-      <ImageBackground
-      source={require('@/assets/cork-bg.jpg')}
-      style={styles.corkBackground}
-      imageStyle={{ resizeMode: 'cover' }}
-        >
-      <View style={[styles.header, { backgroundColor: 'transparent' }]}>
-        <Text style={styles.username}>@anon</Text>
-        <Text style={styles.subheader}>
-          {artworks.length} {artworks.length === 1 ? 'upload' : 'uploads'}
-        </Text>
-      </View>
-      <View style={[styles.tabBar, { backgroundColor: 'transparent' }]}>
-        {(['uploads', 'badges', 'todo'] as const).map((k) => (
-          <Pressable
-            key={k}
-            onPress={() => setActiveTab(k)}
-            style={[
-              styles.tabItem,
-              activeTab === k && styles.tabActive,
-            ]}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === k && styles.tabTextActive,
-              ]}
-            >
-              {k === 'uploads'
-                ? 'Uploads'
-                : k === 'badges'
-                ? 'Badges'
-                : 'To-Do'}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-      </ImageBackground>
-      {/* Tab content */}
-      {activeTab === 'uploads'
-        ? renderUploadsTab()
-        : activeTab === 'badges'
-        ? (
-          <View style={styles.placeholder}>
-            <Text>Badges coming soon!</Text>
-          </View>
-        )
-        : (
-          <View style={styles.placeholder}>
-            <Text>To-Do coming soon!</Text>
-          </View>
+                </View>
+              ) : (
+                /* ZOOMED IMAGE + CONTROLS */
+                <>
+                  <Image
+                    source={{ uri: zoomedArtwork.url }}
+                    style={styles.modalImage}
+                    resizeMode="contain"
+                    onLoadStart={() => setZoomLoading(true)}
+                    onLoadEnd={() => setZoomLoading(false)}
+                  />
+                  <Pressable
+                    style={styles.modalEditButton}
+                    onPress={() => setEditingItem(zoomedArtwork)}
+                  >
+                    <Text style={[styles.modalEditText, { fontSize: 28 }]}>
+                      ✏️
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.modalBackButton}
+                    onPress={() => setZoomedArtwork(null)}
+                  >
+                    <Text style={styles.modalBackText}>← Back</Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
+          </Modal>
         )}
-    </SafeAreaView>
-  );
+        {/* Rename-Project Modal */}
+        {editingProject && (
+          <Modal
+            transparent
+            animationType="slide"
+            visible
+            onRequestClose={() => setEditingProject(null)}
+          >
+            <Pressable
+              style={styles.modalBackground}
+              onPress={() => setEditingProject(null)}
+            />
+            <View style={styles.modalOverlay}>
+              <View style={[styles.editModal, { width: 300 }]}>
+                <Text style={styles.modalHeader}>
+                  Rename “{editingProject}”
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  value={newProjectName}
+                  onChangeText={setNewProjectName}
+                />
+                <View style={styles.modalButtons}>
+                  <Button
+                    title="Cancel"
+                    onPress={() => setEditingProject(null)}
+                  />
+                  <Button
+                    title="Save"
+                    onPress={async () => {
+                      // batch‐update every artwork with the old project name
+                      const batch = writeBatch(db);
+                      artworks
+                        .filter(a => a.project === editingProject)
+                        .forEach(a =>
+                          batch.update(
+                            firestoreDoc(db, 'artworks', a.id),
+                            { project: newProjectName.trim() }
+                          )
+                        );
+                      await batch.commit();
+                      setEditingProject(null);
+                      fetchMyArtworks();
+                    }}
+                  />
+                </View>
+              </View>
+            </View>
+          </Modal>
+        )}
+        {/* Cork‐board header + tabs */}
+        <View style={styles.corkContainer}>
+        <ImageBackground
+          source={require('@/assets/images/corkboard_half.png')}
+          style={{
+            width: '100%',
+            paddingTop: insets.top + 8,  // under the notch
+            paddingBottom: 12,       // space under tabs
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 3 },
+            shadowOpacity: .8,
+            shadowRadius: 2,
+          }}
+          imageStyle={{ resizeMode: 'cover',opacity: .90 }}
+        >
+          <View style={[styles.header, { backgroundColor: 'transparent' }]}>
+            <Text style={styles.username}>@anon</Text>
+            <Text style={styles.subheader}>
+              {artworks.length}{' '}
+              {artworks.length === 1 ? 'upload' : 'uploads'}
+            </Text>
+          </View>
+          <View style={[styles.tabBar, { backgroundColor: 'transparent' }]}>
+            {(['uploads','badges','todo'] as const).map((k) => (
+              <TabNote
+                key={k}
+                tabKey={k}
+                active={activeTab === k}
+                onPress={() => setActiveTab(k)}
+              />
+            ))}
+          </View>
+        </ImageBackground>
+        </View>
+        {/* Main content */}
+        <SafeAreaView style={{ flex: 1, backgroundColor: 'black' }}>
+            <ImageBackground
+              source={require('@/assets/images/profile-bg.png')}
+              style={{ flex: 1 }}
+              imageStyle={{ resizeMode: 'cover',opacity:.15 }}
+            >
+          {activeTab === 'uploads' ? (
+              renderUploadsTab()
+          ) : activeTab === 'badges' ? (
+            <View style={styles.placeholder}>
+              <Text>Badges coming soon!</Text>
+            </View>
+          ) : (
+            renderToDoTab()
+          )}
+          </ImageBackground>
+        </SafeAreaView>
+      </View>
+    );
 }
 
 /* ────────────────────────────────────────────────────────────── */
 /*  Styles                                                       */
 /* ────────────────────────────────────────────────────────────── */
 const styles = StyleSheet.create({
-  /* Polaroid */
-  polaroidContainer: {
-    backgroundColor: '#fff',
-    padding: 8,
-    paddingBottom: 20,
-    borderRadius: 4,
-    margin: 8,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  polaroidImage: { width: 100, height: 100, borderRadius: 2, backgroundColor: '#eee' },
-  polaroidCaption: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#333',
-    width: '100%',
-    textAlign: 'center',
-  },
-
   /* Filter */
   filterContainer: {
-    marginHorizontal: 12,
+    alignItems: 'center',
+    alignSelf: 'center',
+    justifyContent:'center',
+    width:'100%',
     marginBottom: 12,
+    marginLeft:30,
+    marginTop:15,
     position: 'relative',
-    margin: 8,
+    margin: 10,
     zIndex: 1,
   },
   filterInput: {
-    height: 40,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 8,
+    width: '66%',
+    height: 30,
+    marginRight: 20,
+    alignSelf: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.8)',  // a slight white overlay so text is legible
+    borderRadius: 6,
     paddingHorizontal: 8,
+    fontSize: 16,
+    color: '#333',
   },
   suggestionsList: {
     position: 'absolute',
-    top: '100%',
-    left: 0,
+    top: '80%',
+    left: 20,
     right: 0,
+    width: '85%',
     backgroundColor: '#fff',
     borderColor: '#ddd',
     borderWidth: 1,
@@ -623,13 +760,18 @@ const styles = StyleSheet.create({
   header: { alignItems: 'center', marginTop: 20, marginBottom: 12 },
   username: { fontSize: 24, fontWeight: 'bold' },
   subheader: { fontSize: 16, color: '#666', marginTop: 4 },
-  tabBar: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#e5e5e5' },
+  tabBar: { 
+    flexDirection: 'row',
+     borderBottomWidth: 0,
+      borderColor: '#e5e5e5',
+      justifyContent: 'center'
+     },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    borderBottomColor: 'transparent'
   },
   tabActive: { borderBottomColor: '#000' },
   tabText: { fontSize: 16, fontWeight: '600', color: '#666' },
@@ -741,6 +883,64 @@ const styles = StyleSheet.create({
     width: '100%',
     // height to cover just header + tabs:
     // adjust if your header+tabs total ~100px tall
-    height: 120,
+    //height: 0,
+  },
+  filterPlank: {
+    width: '95%',             // or full width minus margins
+    height: 60,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    shadowOpacity: .8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
+    transform: [{ rotate: '-.5deg' }],
+    
+  },
+  corkContainer: {
+    // shadow for iOS
+    elevation: 6,
+    // make sure it sits above the content below
+    zIndex: 1,
+  },
+  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
+  inputRow: { flexDirection: 'row', marginBottom: 12, marginTop: 15,paddingHorizontal: 25 },
+  taskinput:    { flex: 1, borderWidth: 0, borderColor: '#ccc', borderRadius: 8, padding: 8,fontStyle: 'italic' ,fontSize:20},
+  taskRow:  { flexDirection: 'row', justifyContent:'space-between', paddingVertical: 8, paddingHorizontal: 15,paddingRight:30 },
+
+  taskText: { fontSize: 20 ,fontFamily: 'Caveat',textAlignVertical: 'center',},
+  taskDone: { fontSize: 20,fontStyle: 'italic',textDecorationLine: 'line-through', color: '#888' },
+  delete:   { fontSize: 15, color: '#c66' },
+  addButton: {
+    marginLeft: 8,
+    borderRadius: 18,
+    width:36,
+    height: 36,      // circular
+    backgroundColor: '#5a3c1f', // match your crafting palette
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addButtonText: {
+    fontSize: 24,          // bigger “+”
+    lineHeight: 24,
+    color: 'white',
+  },
+  taskTitleContainer: {
+    flex: 1,
+    marginHorizontal: 8,
+    marginBottom:8,
+    textAlignVertical: 'center',
+  },
+  taskInput: {
+    flex: 1,
+    fontFamily: 'Caveat',
+    marginHorizontal: 8,
+    borderColor: '#666',
+    textAlignVertical: 'center',
+  },
+  cardRow: {
+    justifyContent:'center',
+    alignItems: 'center',
+    paddingHorizontal: 10,
   },
 });
