@@ -4,6 +4,7 @@ import { View, Text, Pressable } from 'react-native';
 import PaperHeader from './PaperHeader';
 import Polaroid from './Polaroid';
 import { StyleSheet } from 'react-native';
+import type { Artwork } from '@/app/types/artwork';
 
 interface SectionProps {
   title: string;
@@ -12,6 +13,9 @@ interface SectionProps {
   onToggle: () => void;
   onItemPress: (item: Artwork) => void;
   onItemLongPress: (item: Artwork) => void;
+  onEdit: () => void;
+  idx: number;
+  showAllDetails: boolean;
 }
 
 export default function Section({
@@ -21,12 +25,15 @@ export default function Section({
   onToggle,
   onItemPress,
   onItemLongPress,
+  idx,
+  onEdit,
+  showAllDetails,
 }: SectionProps) {
   return (
     <View style={styles.sectionContainer}>
       <View style={styles.sectionHeaderRow}>
-        <PaperHeader title={title} onEdit={() => { } } idx={0} />
-        <Pressable onPress={onToggle}>
+        <PaperHeader title={title} onEdit={onEdit} idx={idx} />
+        <Pressable onPress={onToggle} style={styles.toggleButton}>
           <Text style={styles.toggleButtonText}>
             {expanded ? '–' : '+'}
           </Text>
@@ -42,6 +49,7 @@ export default function Section({
               date={item.createdAt.toDate().toLocaleDateString()}
               onPress={() => onItemPress(item)}
               onLongPress={() => onItemLongPress(item)}
+              showDetails={showAllDetails}
             />
           ))}
         </View>
@@ -52,7 +60,7 @@ export default function Section({
 
 const styles = StyleSheet.create({
     sectionContainer: {
-      marginBottom: 24,
+      marginBottom: 0,
     },
     sectionHeaderRow: {
       flexDirection: 'row',
@@ -60,9 +68,16 @@ const styles = StyleSheet.create({
       alignItems: 'center',
       marginHorizontal: 12,
     },
+    toggleButton: {
+      padding: 8,
+      borderColor: '#fff',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     toggleButtonText: {
-      fontSize: 18,
-      fontWeight: '600',
+      fontSize: 24,
+      fontWeight: '700',
+      color: '#fff',
     },
     gridContainer: {
       flexDirection: 'row',

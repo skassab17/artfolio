@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import ArtworkEditForm from '@/components/editingforms/ArtworkEditForm';
 import {Alert, ActivityIndicator, FlatList, Image, Pressable, RefreshControl, SafeAreaView, StyleSheet, Text, View, Modal, ScrollView, TextInput, Button, StyleProp, ViewStyle, LayoutChangeEvent, } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 import { collection, deleteDoc, getDocs, orderBy, query, where, updateDoc, doc as firestoreDoc, writeBatch, doc, serverTimestamp, addDoc} from 'firebase/firestore';
@@ -13,6 +14,10 @@ import { Feather } from "@expo/vector-icons";
 import Polaroid from '@/components/profilescreen/Polaroid';
 import TabNote from '@/components/profilescreen/TabNote';
 import Section from '@/components/profilescreen/Section';
+import ArtworkZoom from '@/components/profilescreen/ArtworkZoom';
+import RenameProjectModal from '@/components/editingforms/RenameProjectModal';
+import HobbyFilter from '@/components/profilescreen/HobbyFilter';
+import WhiteboardHeader from '@/components/profilescreen/WhiteboardHeader';
 
 // Extracted hooks
 import { useWhiteboard } from '@/hooks/ProfileHooks/useWhiteboard';
@@ -35,8 +40,8 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
 
   // which project are we renaming, and the draft name
-const [editingProject, setEditingProject]   = useState<string|null>(null);
-const [newProjectName,  setNewProjectName]  = useState<string>('');
+  const [editingProject, setEditingProject]   = useState<string|null>(null);
+  const [newProjectName,  setNewProjectName]  = useState<string>('');
 
   /* Data state */
   const [artworks, setArtworks] = useState<Artwork[]>([]);
@@ -46,14 +51,14 @@ const [newProjectName,  setNewProjectName]  = useState<string>('');
   /* Filter dropdown state */
   const [filterText, setFilterText] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
-
+  const [showAllDetails, setShowAllDetails] = useState(false);
   /* Edit form state */
   const [editCategory, setEditCategory] = useState('');
   const [editProject, setEditProject] = useState('');
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   // Track which sections are expanded
-const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
 // Toggles a section’s expanded state
 const toggleSection = (title: string) => {
@@ -69,11 +74,6 @@ const toggleSection = (title: string) => {
       fetchMyArtworks();
     }
   }, [activeTab]);
-  useEffect(() => {
-    if (zoomedArtwork) {
-      setZoomLoading(true);
-    }
-  }, [zoomedArtwork]);
 
   async function fetchMyArtworks() {
     try {
@@ -131,8 +131,10 @@ const toggleSection = (title: string) => {
 
   /* Hobby suggestions */
   const hobbies = useMemo(
-    () =>
-      Array.from(new Set(artworks.map((a) => a.category).filter(Boolean))),
+    () => {
+      const unique = Array.from(new Set(artworks.map((a) => a.category).filter(Boolean)));
+      return unique.sort((x, y) => x.localeCompare(y));
+    },
     [artworks]
   );
   const suggestionItems = hobbies.includes(filterText)
@@ -202,55 +204,24 @@ const toggleSection = (title: string) => {
   /* Render uploads tab */
   const renderUploadsTab = () => (
     <>
-      <View style={styles.filterContainer}>
-      <ImageBackground
-          source={require('@/assets/images/plank.png')}
-          style={styles.filterPlank}
-          imageStyle={{ resizeMode: 'stretch' }}
-        >
-        <TextInput
-          style={styles.filterInput}
-          placeholder="Hobby Filters"
-          placeholderTextColor={"#777"}
-          value={filterText}
-          onFocus={() => setShowSuggestions(true)}
-          onChangeText={(text) => {
-            setFilterText(text);
-            if (text === '') setHobbyFilter(null);
-            setShowSuggestions(text.length > 0);
-          }}
-        />
-        </ImageBackground>
-        {showSuggestions && (
-          <ScrollView style={styles.suggestionsList}>
-            <Pressable
-              key="all"
-              style={styles.suggestionItem}
-              onPress={() => {
-                setHobbyFilter(null);
-                setFilterText('');
-                setShowSuggestions(false);
-              }}
-            >
-              <Text>All</Text>
-            </Pressable>
-            {suggestionItems.map((h) => (
-              <Pressable
-                key={h}
-                style={styles.suggestionItem}
-                onPress={() => {
-                  setHobbyFilter(h);
-                  setFilterText(h);
-                  setShowSuggestions(false);
-                }}
-              >
-                <Text>{h}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        )}
-      </View>
-
+      <HobbyFilter
+        filterText={filterText}
+        onShowAllDetails={() => setShowAllDetails(prev => !prev)}
+        onFocus={() => setShowSuggestions(true)}
+        onChangeText={(text) => {
+          setFilterText(text);
+          if (text === '') setHobbyFilter(null);
+          setShowSuggestions(text.length > 0);
+        }}
+        onSelectSuggestion={(h) => {
+          setHobbyFilter(h);
+          setFilterText(h ?? '');
+          setShowSuggestions(false);
+        }}
+        showSuggestions={showSuggestions}
+        suggestionItems={suggestionItems}
+        onBlur={() => setShowSuggestions(false)}
+      />
       {loading ? (
         <ActivityIndicator style={{ marginTop: 20 }} />
       ) : sections.length === 0 ? (
@@ -266,15 +237,21 @@ const toggleSection = (title: string) => {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          {sections.map(sec => (
+          {sections.map((sec, idx) => (
             <Section
               key={sec.title}
+              idx={idx}
+              onEdit={() => {
+                setEditingProject(sec.title);
+                setNewProjectName(sec.title);
+              }}
               title={sec.title}
               data={sec.data}
               expanded={expandedSections[sec.title]}
               onToggle={() => toggleSection(sec.title)}
               onItemPress={setZoomedArtwork}
               onItemLongPress={deleteArtwork}
+              showAllDetails={showAllDetails}
             />
           ))}
         </ScrollView>
@@ -418,199 +395,66 @@ const [editingTaskText, setEditingTaskText] = useState('');
   /* Main render */
   return (
       <View style={{ flex: 1 }}>
-        {/* Combined Zoom + Edit Modal (unchanged) */}
+        {/* Combined Zoom + Edit Modal replaced by ArtworkZoom */}
         {zoomedArtwork && (
-          <Modal
-            transparent
-            animationType="fade"
-            visible
-            onRequestClose={() => setZoomedArtwork(null)}
-          >
-            <Pressable
-              style={styles.modalBackground}
-              onPress={() => {
-                if (!editingItem) {
-                  requestAnimationFrame(() => setZoomedArtwork(null));
+          <ArtworkZoom
+            artwork={zoomedArtwork}
+            loading={zoomLoading}
+            onEdit={() => {
+              setZoomedArtwork(null);
+              setEditingItem(zoomedArtwork);
+            }}
+            onClose={() => setZoomedArtwork(null)}
+            onLoadStart={() => setZoomLoading(true)}
+            onLoadEnd={() => setZoomLoading(false)}
+          />
+        )}
+        
+        {editingItem && (
+          <ArtworkEditForm
+            artwork={editingItem}
+            onCancel={() => setEditingItem(null)}
+            onSave={async (updates) => {
+              await updateDoc(
+                firestoreDoc(db, 'artworks', editingItem.id),
+                {
+                  category: updates.category,
+                  ...(updates.project ? { project: updates.project } : {}),
+                  title: updates.title,
+                  description: updates.description,
                 }
-              }}
-            />
-            <View style={styles.modalOverlay}>
-              {zoomLoading && (
-                <ActivityIndicator
-                  size="large"
-                  color="#fff"
-                  style={styles.modalSpinner}
-                />
-              )}
-              {editingItem ? (
-                /* EDIT FORM */
-                <View style={[styles.editModal, { backgroundColor: 'white' }]}>
-                                  <Polaroid 
-                  uri={editingItem.url}
-                  caption={editingItem.title}
-                  date={editingItem.createdAt.toDate().toLocaleDateString()}
-                  onPress={() => {}}
-                  onLongPress={() => {}}
-                  style={styles.miniPolaroid}
-                />  
-                <Text style={styles.modalHeader}>Now editing : "{editingItem.title}"</Text>
-
-                <Text>Hobby:</Text>
-                <DropDownPicker
-                  open={editCategoryOpen}
-                  value={editCategory}
-                  items={CRAFT_HOBBIES}
-                  setOpen={setEditCategoryOpen}
-                  setValue={setEditCategory}
-                  setItems={() => {}}
-                  placeholder="Select or search hobby..."
-                  searchable={true}
-                  searchPlaceholder="Search hobbies..."
-                  containerStyle={{ marginBottom: 12 }}
-                  dropDownContainerStyle={{ zIndex: 1000 }}
-                  listItemContainerStyle={{ zIndex: 1000 }}
-                  zIndex={1000}
-                  zIndexInverse={1000}
-                />
-
-                <Text>Project:</Text>
-                <TextInput
-                  style={styles.input}
-                  value={editProject}
-                  onChangeText={setEditProject}
-                />
-
-                <Text>Title:</Text>
-                <TextInput
-                  style={styles.input}
-                  value={editTitle}
-                  onChangeText={setEditTitle}
-                />
-
-                <Text>Description:</Text>
-                <TextInput
-                  style={[styles.input, { height: 80 }]}
-                  value={editDescription}
-                  onChangeText={setEditDescription}
-                  multiline
-                />
-
-                <View style={styles.modalButtons}>
-                  <Button title="Cancel" onPress={() => setEditingItem(null)} />
-                  <Button
-                    title="Save"
-                    onPress={async () => {
-                      await updateDoc(
-                        firestoreDoc(db, 'artworks', editingItem.id),
-                        {
-                          category: editCategory,
-                          ...(editProject.trim() && {
-                            project: editProject.trim(),
-                          }),
-                          title: editTitle,
-                          description: editDescription,
-                        }
-                      );
-                      fetchMyArtworks();
-                      setEditingItem(null);
-                    }}
-                  />
-                </View>
-                </View>
-              ) : (
-                /* ZOOMED IMAGE + CONTROLS */
-                <>
-                  <Image
-                    source={{ uri: zoomedArtwork.url }}
-                    style={styles.modalImage}
-                    resizeMode="contain"
-                    onLoadStart={() => setZoomLoading(true)}
-                    onLoadEnd={() => setZoomLoading(false)}
-                  />
-                  <Pressable
-                    style={styles.modalEditButton}
-                    onPress={() => setEditingItem(zoomedArtwork)}
-                  >
-                    <Text style={[styles.modalEditText, { fontSize: 28 }]}>
-                      ✏️
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.modalBackButton}
-                    onPress={() => setZoomedArtwork(null)}
-                  >
-                    <Text style={styles.modalBackText}>← Back</Text>
-                  </Pressable>
-                </>
-              )}
-            </View>
-          </Modal>
+              );
+              fetchMyArtworks();
+              setEditingItem(null);
+            }}
+          />
         )}
         {/* Rename-Project Modal */}
         {editingProject && (
-          <Modal
-            transparent
-            animationType="slide"
-            visible
-            onRequestClose={() => setEditingProject(null)}
-          >
-            <Pressable
-              style={styles.modalBackground}
-              onPress={() => setEditingProject(null)}
-            />
-            <View style={styles.modalOverlay}>
-              <View style={[styles.editModal, { width: 300 }]}>
-                <Text style={styles.modalHeader}>
-                  Rename “{editingProject}”
-                </Text>
-                <TextInput
-                  style={styles.input}
-                  value={newProjectName}
-                  onChangeText={setNewProjectName}
-                />
-                <View style={styles.modalButtons}>
-                  <Button
-                    title="Cancel"
-                    onPress={() => setEditingProject(null)}
-                  />
-                  <Button
-                    title="Save"
-                    onPress={async () => {
-                      // batch‐update every artwork with the old project name
-                      const batch = writeBatch(db);
-                      artworks
-                        .filter(a => a.project === editingProject)
-                        .forEach(a =>
-                          batch.update(
-                            firestoreDoc(db, 'artworks', a.id),
-                            { project: newProjectName.trim() }
-                          )
-                        );
-                      await batch.commit();
-                      setEditingProject(null);
-                      fetchMyArtworks();
-                    }}
-                  />
-                </View>
-              </View>
-            </View>
-          </Modal>
+          <RenameProjectModal
+            projectName={editingProject}
+            draftName={newProjectName}
+            onChangeDraftName={setNewProjectName}
+            onCancel={() => setEditingProject(null)}
+            onSave={async () => {
+              const batch = writeBatch(db);
+              artworks
+                .filter(a => a.project === editingProject)
+                .forEach(a =>
+                  batch.update(
+                    firestoreDoc(db, 'artworks', a.id),
+                    { project: newProjectName.trim() }
+                  )
+                );
+              await batch.commit();
+              setEditingProject(null);
+              fetchMyArtworks();
+            }}
+          />
         )}
         {/* Cork‐board header + tabs */}
         <View style={styles.corkContainer}>
-        <ImageBackground
-          source={require('@/assets/images/corkboard_half.png')}
-          style={{
-            width: '100%',
-            paddingTop: insets.top + 8,  // under the notch
-            paddingBottom: 12,       // space under tabs
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 3 },
-            shadowOpacity: .8,
-            shadowRadius: 2,
-          }}
-          imageStyle={{ resizeMode: 'cover',opacity: .90 }}
-        >
+        <WhiteboardHeader>
           <View style={[styles.header, { backgroundColor: 'transparent' }]}>
             <Text style={styles.username}>@anon</Text>
             <Text style={styles.subheader}>
@@ -624,18 +468,19 @@ const [editingTaskText, setEditingTaskText] = useState('');
                 key={k}
                 tabKey={k}
                 active={activeTab === k}
-                onPress={() => setActiveTab(k)}
+                onPress={() => { setActiveTab(k); setShowSuggestions(false); }}
               />
             ))}
           </View>
-        </ImageBackground>
+        </WhiteboardHeader>
+       
         </View>
         {/* Main content */}
         <SafeAreaView style={{ flex: 1, backgroundColor: 'black' }}>
             <ImageBackground
               source={require('@/assets/images/profile-bg.png')}
               style={{ flex: 1 }}
-              imageStyle={{ resizeMode: 'cover',opacity:.15 }}
+              imageStyle={{ resizeMode: 'cover',opacity:0 }}
             >
           {activeTab === 'uploads' ? (
               renderUploadsTab()
@@ -707,7 +552,7 @@ const styles = StyleSheet.create({
   /* Header & Tabs */
   header: { alignItems: 'center', marginTop: 20, marginBottom: 12 },
   username: { fontSize: 24, fontWeight: 'bold' },
-  subheader: { fontSize: 16, color: '#666', marginTop: 4 },
+  subheader: { fontSize: 16, marginTop: 4 },
   tabBar: { 
     flexDirection: 'row',
      borderBottomWidth: 0,

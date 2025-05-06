@@ -19,21 +19,27 @@ export default function PaperHeader({
   onEdit?: () => void;
 }) {
   const [textWidth, setTextWidth] = useState(0);
-  const height = 40;
-  const leftPadding = 12;
-  const rightPadding = 24;
+  const height = 50;              
+  const leftPadding = 20;         
+  const rightPadding = 40;        
 
-  const bg = HEADER_PATTERNS[idx % HEADER_PATTERNS.length];
+  const [bg] = useState(
+    () => HEADER_PATTERNS[
+      Math.floor(Math.random() * HEADER_PATTERNS.length)
+    ]
+  );
   const totalWidth = textWidth
     ? textWidth + leftPadding + rightPadding * 3
     : 0;
+  const [stretchFactor] = useState(() => 1.3 + Math.random() * 0.3);
+  const stretchedWidth = totalWidth * stretchFactor;
 
   return (
     <View style={styles.secwrapper}>
       {totalWidth > 0 && (
         <ImageBackground
           source={bg}
-          style={[styles.banner, { width: totalWidth, height }]}
+          style={[styles.banner, { width: stretchedWidth, height }]}
           imageStyle={{ resizeMode: 'stretch' }}
         />
       )}
@@ -65,7 +71,8 @@ const styles = StyleSheet.create({
   secwrapper: {
     alignSelf: 'flex-start',
     marginLeft: -10,
-    marginBottom: 8,
+    zIndex: 10,
+    elevation: 10,
   },
   banner: {
     shadowOpacity: 0.8,
@@ -78,9 +85,13 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     position: 'absolute',
     justifyContent: 'center',
+    alignItems: 'center',
   },
   sectext: {
     ...typography.header,
+    fontSize: typography.header.fontSize ? typography.header.fontSize * 1.4 : 28,
+    fontWeight: '700',
+    paddingRight: 20,
     color: themecolors.textPrimary,
     overflow: 'visible',
   },
@@ -88,7 +99,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   editIcon: {
-    fontSize: 20,
+    fontSize: 24,  // increased from 20 to 24
     paddingTop: 9,
   },
 });
