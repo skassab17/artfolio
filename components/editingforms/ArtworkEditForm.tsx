@@ -1,4 +1,6 @@
 // components/profilescreen/ArtworkEditForm.tsx
+// Modal window used to update an existing artwork entry
+
 import React, { useState, useEffect } from 'react';
 import {
   Modal,
@@ -12,6 +14,8 @@ import {
 import DropDownPicker from 'react-native-dropdown-picker';
 import Polaroid from '@/components/profilescreen/Polaroid';
 import type { Artwork } from '@/app/types/artwork';
+// List of categories the user can assign to an artwork
+
 
 const CRAFT_HOBBIES = [
   { label: 'Watercolor',     value: 'Watercolor'    },
@@ -54,6 +58,8 @@ export default function ArtworkEditForm({
     setTitle(artwork.title || '');
     setDescription(artwork.description || '');
   }, [artwork]);
+
+  // Pass updates back to the parent component
 
   const handleSave = () => {
     onSave({
