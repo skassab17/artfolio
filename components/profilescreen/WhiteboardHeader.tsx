@@ -30,7 +30,8 @@ export default function WhiteboardHeader({
   } = useWhiteboard();
 
   const insets = useSafeAreaInsets();
-  const calculatedHeaderHeight = SCREEN_HEIGHT * 0.4 + insets.top;
+  // The whiteboard should fill the entire first screen height
+  const calculatedHeaderHeight = SCREEN_HEIGHT + insets.top;
   const [vectorStrokes, setVectorStrokes] = useState<Stroke[]>([]);
   const [vectorStickers, setVectorStickers] = useState<Sticker[]>([]);
   console.log('Vector Sticker', vectorStickers);
@@ -47,7 +48,8 @@ export default function WhiteboardHeader({
         style={[
           styles.header,
           {
-            height: SCREEN_HEIGHT * 0.4 + insets.top,
+            // Fill the entire screen for the whiteboard
+            height: SCREEN_HEIGHT + insets.top,
             paddingTop: insets.top + 12,
           },
         ]}
@@ -108,7 +110,8 @@ const SCREEN_HEIGHT = Dimensions.get('window').height;
 const styles = StyleSheet.create({
   header: {
     width: '100%',
-    height: SCREEN_HEIGHT * .4,
+    // The whiteboard now takes up the whole screen
+    height: SCREEN_HEIGHT,
     backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
