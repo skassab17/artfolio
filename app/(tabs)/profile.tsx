@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ArtworkEditForm from '@/components/editingforms/ArtworkEditForm';
-import {Alert, ActivityIndicator, FlatList, Image, Pressable, RefreshControl, SafeAreaView, StyleSheet, Text, View, Modal, ScrollView, TextInput, Button, StyleProp, ViewStyle, LayoutChangeEvent, } from 'react-native';
+import {Alert, ActivityIndicator, FlatList, Image, Pressable, RefreshControl, SafeAreaView, StyleSheet, Text, View, Modal, ScrollView, TextInput, Button, StyleProp, ViewStyle, LayoutChangeEvent, Dimensions } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 import { collection, deleteDoc, getDocs, orderBy, query, where, updateDoc, doc as firestoreDoc, writeBatch, doc, serverTimestamp, addDoc} from 'firebase/firestore';
 import { deleteObject, ref } from 'firebase/storage';
@@ -12,16 +12,15 @@ import { Feather } from "@expo/vector-icons";
 
 // Extracted UI components
 import Polaroid from '@/components/profilescreen/Polaroid';
-import TabNote from '@/components/profilescreen/TabNote';
 import Section from '@/components/profilescreen/Section';
 import ArtworkZoom from '@/components/profilescreen/ArtworkZoom';
 import RenameProjectModal from '@/components/editingforms/RenameProjectModal';
 import HobbyFilter from '@/components/profilescreen/HobbyFilter';
 import WhiteboardHeader from '@/components/profilescreen/WhiteboardHeader';
+import { useRouter } from 'expo-router';
 
 // Extracted hooks
 import { useWhiteboard } from '@/hooks/ProfileHooks/useWhiteboard';
-import { useTabs } from '@/hooks/ProfileHooks/useTabs';
 
 // Extracted types
 import type { Artwork } from '@/app/types/artwork';
@@ -33,13 +32,13 @@ import type { Artwork } from '@/app/types/artwork';
 /* ────────────────────────────────────────────────────────────── */
 export default function ProfileScreen() {
   /* UI state */
-  const [activeTab, setActiveTab] = useState<'uploads' | 'badges' | 'todo'>('uploads');
   const [hobbyFilter, setHobbyFilter] = useState<string | null>(null);
   const [zoomedArtwork, setZoomedArtwork] = useState<Artwork | null>(null);
   const [editingItem, setEditingItem] = useState<Artwork | null>(null);
   const [zoomLoading, setZoomLoading] = useState(false);
   const [editCategoryOpen, setEditCategoryOpen] = useState(false);
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   // which project are we renaming, and the draft name
   const [editingProject, setEditingProject]   = useState<string|null>(null);
@@ -70,12 +69,10 @@ const toggleSection = (title: string) => {
   }));
 };
 
-  /* Load artworks on mount and on tab switch */
+  /* Load artworks on mount */
   useEffect(() => {
-    if (activeTab === 'uploads') {
       fetchMyArtworks();
-    }
-  }, [activeTab]);
+  }, []);
 
   // Pulls the user's artworks from Firestore in newest-first order
 
@@ -470,47 +467,67 @@ const [editingTaskText, setEditingTaskText] = useState('');
             }}
           />
         )}
-        {/* Cork‐board header + tabs */}
-        <View style={styles.corkContainer}>
-        <WhiteboardHeader>
-          <View style={[styles.header, { backgroundColor: 'transparent' }]}>
-            <Text style={styles.username}>@anon</Text>
-            <Text style={styles.subheader}>
-              {artworks.length}{' '}
-              {artworks.length === 1 ? 'upload' : 'uploads'}
-            </Text>
-          </View>
-          <View style={[styles.tabBar, { backgroundColor: 'transparent' }]}>
-            {(['uploads','badges','todo'] as const).map((k) => (
-              <TabNote
-                key={k}
-                tabKey={k}
-                active={activeTab === k}
-                onPress={() => { setActiveTab(k); setShowSuggestions(false); }}
-              />
-            ))}
-          </View>
-        </WhiteboardHeader>
-       
-        </View>
-        {/* Main content */}
-        <SafeAreaView style={{ flex: 1, backgroundColor: 'black' }}>
-            <ImageBackground
-              source={require('@/assets/images/profile-bg.png')}
-              style={{ flex: 1 }}
-              imageStyle={{ resizeMode: 'cover',opacity:0 }}
-            >
-          {activeTab === 'uploads' ? (
-              renderUploadsTab()
-          ) : activeTab === 'badges' ? (
-            <View style={styles.placeholder}>
-              <Text>Badges coming soon!</Text>
+        {/* Profile and badges pages */}
+        <ScrollView
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          style={{ flex: 1 }}
+        >
+          {/* Profile page */}
+          <ScrollView style={{ width: Dimensions.get('window').width }}>
+            <WhiteboardHeader>
+              <View style={[styles.header, { backgroundColor: 'transparent' }]}>
+                <Text style={styles.username}>@anon</Text>
+                <Text style={styles.subheader}>
+                  {artworks.length}{' '}
+                  {artworks.length === 1 ? 'upload' : 'uploads'}
+                </Text>
+              </View>
+            </WhiteboardHeader>
+
+            {/* Showcase */}
+            <View style={styles.showcaseContainer}>
+              <Text style={styles.showcaseTitle}>Showcase</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {artworks.slice(0, 3).map(item => (
+                  <Polaroid
+                    key={item.id}
+                    uri={item.url}
+                    caption={item.title}
+                    date={item.createdAt.toDate().toLocaleDateString()}
+                    onPress={() => setZoomedArtwork(item)}
+                  />
+                ))}
+              </ScrollView>
             </View>
-          ) : (
-            renderToDoTab()
-          )}
-          </ImageBackground>
-        </SafeAreaView>
+
+            {/* Hobby icons */}
+            <View style={styles.hobbyRow}>
+              {hobbies.map(h => (
+                <Pressable
+                  key={h}
+                  style={styles.hobbyIcon}
+                  onPress={() => router.push(`/hobby/${encodeURIComponent(h)}`)}
+                >
+                  <Feather name="image" size={32} color="#000" />
+                  <Text>{h}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </ScrollView>
+
+          {/* Badges page */}
+          <View
+            style={{
+              width: Dimensions.get('window').width,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Text>Badges coming soon!</Text>
+          </View>
+        </ScrollView>
       </View>
     );
 }
@@ -753,5 +770,25 @@ const styles = StyleSheet.create({
     justifyContent:'center',
     alignItems: 'center',
     paddingHorizontal: 10,
+  },
+  showcaseContainer: {
+    paddingVertical: 20,
+    paddingLeft: 10,
+  },
+  showcaseTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  hobbyRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  hobbyIcon: {
+    alignItems: 'center',
+    marginHorizontal: 10,
+    marginBottom: 10,
   },
 });
