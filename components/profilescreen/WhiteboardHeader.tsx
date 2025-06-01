@@ -15,6 +15,7 @@ import Signature from 'react-native-signature-canvas';
 import { StatusBar } from 'expo-status-bar';
 import VectorCanvas from '@/components/profilescreen/VectorCanvas';
 import { Stroke } from '@/components/profilescreen/VectorCanvas';
+import type { Sticker } from '@/components/profilescreen/VectorCanvas';
 
 export default function WhiteboardHeader({
     children,
@@ -31,7 +32,9 @@ export default function WhiteboardHeader({
   const insets = useSafeAreaInsets();
   const calculatedHeaderHeight = SCREEN_HEIGHT * 0.4 + insets.top;
   const [vectorStrokes, setVectorStrokes] = useState<Stroke[]>([]);
-
+  const [vectorStickers, setVectorStickers] = useState<Sticker[]>([]);
+  console.log('Vector Sticker', vectorStickers);
+  console.log('Vector Stroke', vectorStrokes);
   return (
     <>
      <StatusBar translucent backgroundColor="transparent" style="dark" />
@@ -54,6 +57,20 @@ export default function WhiteboardHeader({
           }}
       >
         {children}
+        {vectorStickers.map(st => (
+          <Image
+            key={st.id}
+            source={st.src}
+            style={{
+              position: 'absolute',
+              left: st.x,
+              top: st.y,
+              width: st.size,
+              height: st.size,
+              resizeMode: 'contain',
+            }}
+          />
+        ))}
         <Pressable
           style={styles.drawButton}
           onPress={() => setModalVisible(true)}
@@ -73,9 +90,11 @@ export default function WhiteboardHeader({
       >
         <VectorCanvas
           initialStrokes={vectorStrokes}
-          onSave={(uri, updatedStrokes) => {
+          initialStickers={vectorStickers}
+          onSave={(uri, updatedStrokes, updatedStickers) => {
             setDrawingUri(uri);
             setVectorStrokes(updatedStrokes);
+            setVectorStickers(updatedStickers ? updatedStickers : []);
             setModalVisible(false);
           }}
           onCancel={() => setModalVisible(false)}

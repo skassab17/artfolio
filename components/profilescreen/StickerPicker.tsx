@@ -7,6 +7,7 @@ interface StickerPickerProps {
 }
 
 export default function StickerPicker({ options, onSelect }: StickerPickerProps) {
+console.log('StickerPicker rendered with options:', options);
   return (
     <ScrollView
       horizontal

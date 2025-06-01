@@ -7,15 +7,26 @@ import Slider from '@react-native-community/slider';
 import StickerPicker from '@/components/profilescreen/StickerPicker';
 import DraggableSticker from '@/components/profilescreen/DraggableSticker';
 export type Stroke = { d: string; color: string; width: number };
-
+export interface Sticker {
+  id: string;
+  src: any;
+  x: number;
+  y: number;
+  size: number;
+}
 interface VectorCanvasProps {
-  onSave: (uri: string, strokes: Stroke[]) => void;
+  onSave: (
+    uri: string,
+    strokes: Stroke[],
+    stickers: Sticker[]
+  ) => void;
   onCancel: () => void;
   initialStrokes?: Stroke[];
+  initialStickers?: Sticker[];
   headerHeight?: number;      // new prop for maximum canvas height
 }
 
-export default function VectorCanvas({ onSave, onCancel, initialStrokes, headerHeight }: VectorCanvasProps) {
+export default function VectorCanvas({ onSave, onCancel, initialStrokes, initialStickers, headerHeight }: VectorCanvasProps) {
     const currentRef = useRef<string>('');
     const [strokes, setStrokes] = useState<Stroke[]>(initialStrokes ?? []);
     const [current, setCurrent] = useState<string>('');
@@ -39,6 +50,12 @@ export default function VectorCanvas({ onSave, onCancel, initialStrokes, headerH
         setStrokes(initialStrokes);
       }
     }, [initialStrokes]);
+    // Sync sticker state when initialStickers prop updates
+    useEffect(() => {
+      if (initialStickers) {
+        setStickers(initialStickers);
+      }
+    }, [initialStickers]);
     const selectedColor = `hsl(${hueRef.current}, 100%, ${lightnessRef.current}%)`;
     const svgRef = React.useRef<any>(null);
     const pan = React.useRef(
@@ -69,7 +86,7 @@ export default function VectorCanvas({ onSave, onCancel, initialStrokes, headerH
       format: 'png',
       quality: 0.8,
     });
-    onSave(uri, strokes);
+    onSave(uri, strokes, stickers);
     setStrokes([]);
     setCurrent('');
   }
@@ -96,7 +113,18 @@ export default function VectorCanvas({ onSave, onCancel, initialStrokes, headerH
   const stickerOptions = [
     require('@/assets/stickers/sun.png'),
   ];
-  const [stickers, setStickers] = useState<{ id: string; src: any; x: number; y: number; size: number }[]>([]);
+  const [stickers, setStickers] = useState<Sticker[]>(initialStickers ?? []);
+
+  // Drag‐to‐delete state
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [trashLayout, setTrashLayout] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  // Remove a sticker by its ID
+  function removeSticker(id: string) {
+    console.log('Trash area measured at', trashLayout);
+    setStickers(prev => prev.filter(st => st.id !== id));
+  }
+
   function addSticker(src: any) {
     const defaultSize = 50;
     const x = (headerHeight ?? 0) / 2 - defaultSize / 2;
@@ -107,6 +135,17 @@ export default function VectorCanvas({ onSave, onCancel, initialStrokes, headerH
     ]);
   }
 
+  // Update a sticker’s position
+  function updateStickerPosition(id: string, x: number, y: number) {
+    setStickers(prev =>
+      prev.map(st =>
+        st.id === id
+          ? { ...st, x: x - st.size / 2, y: y - st.size / 2 }
+          : st
+      )
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View
@@ -114,7 +153,7 @@ export default function VectorCanvas({ onSave, onCancel, initialStrokes, headerH
           styles.drawing,
           headerHeight != null && { height: headerHeight },  // limit drawing height
         ]}
-        {...pan.panHandlers}
+        {...(!isDragging ? pan.panHandlers : {})}
       >
         <Svg ref={svgRef} style={StyleSheet.absoluteFill}>
           {/* Completed strokes */}
@@ -134,15 +173,55 @@ export default function VectorCanvas({ onSave, onCancel, initialStrokes, headerH
         </Svg>
         {/* Placed stickers */}
         {stickers.map(st => (
-          <DraggableSticker
-            key={st.id}
-            src={st.src}
-            initialX={st.x}
-            initialY={st.y}
-            initialSize={st.size}
-          />
-        ))}
+            <DraggableSticker
+              key={st.id}
+              id={st.id}
+              src={st.src}
+              initialX={st.x}
+              initialY={st.y}
+              initialSize={st.size}
+              onDragBegin={() => setIsDragging(true)}
+              onDragEnd={(id, finalX, finalY) => {
+                setIsDragging(false);
+                console.log('Trash area measured at', trashLayout);
+                console.log('Removing', id);
+                console.log('FinalX',finalX);
+                console.log('FinalY',finalY);
+                // Check for delete
+                if (
+                  trashLayout &&
+                  finalX >= trashLayout.x - 20 &&
+                  finalX <= trashLayout.x + trashLayout.width + 20 &&
+                  finalY >= trashLayout.y - 20 &&
+                  finalY <= trashLayout.y + trashLayout.height + 20
+                ) {
+                  removeSticker(id);
+                } else {
+                  // Otherwise update its position state
+                  updateStickerPosition(id, finalX, finalY);
+                }
+              }}
+            />
+          ))}
+      {/* Trashcan inside drawing area */}
+      {isDragging && (
+        <View
+          onLayout={e => setTrashLayout(e.nativeEvent.layout)}
+          style={{
+            position: 'absolute',
+            left: 0,
+            bottom: 0, // 8px above the bottom of the drawing area
+            width: 80,
+            height: 80,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={styles.trashIcon}>🗑️</Text>
+        </View>
+      )}
       </View>
+        
       <View style={styles.brushContainer}>
         {[2, 4, 8, 12, 16].map(size => (
           <TouchableOpacity
@@ -278,5 +357,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fafafa',
     borderTopWidth: 1,
     borderColor: '#ddd',
+  },
+  trashIcon: {
+    fontSize: 32,
+    lineHeight: 32,
   },
 });
