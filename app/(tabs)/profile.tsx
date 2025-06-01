@@ -25,6 +25,8 @@ import { useTabs } from '@/hooks/ProfileHooks/useTabs';
 
 // Extracted types
 import type { Artwork } from '@/app/types/artwork';
+// This screen shows the user's artwork in a cork-board style layout and also includes a to-do list.
+
 
 /* ────────────────────────────────────────────────────────────── */
 /*  ProfileScreen                                                */
@@ -75,6 +77,8 @@ const toggleSection = (title: string) => {
     }
   }, [activeTab]);
 
+  // Pulls the user's artworks from Firestore in newest-first order
+
   async function fetchMyArtworks() {
     try {
       setLoading(true);
@@ -106,6 +110,8 @@ const toggleSection = (title: string) => {
       setRefreshing(false);
     }
   }
+
+  // Remove artwork from Firestore and its image from storage
 
   async function deleteArtwork(item: Artwork) {
     Alert.alert('Delete?', 'Are you sure?', [
@@ -174,6 +180,8 @@ const toggleSection = (title: string) => {
         : artworks,
     [artworks, hobbyFilter]
   );
+  // Group artworks by project and sort them
+
   const sections = useMemo(() => {
     const sorted = [...filteredArtworks].sort(
       (a, b) => b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime()
@@ -269,6 +277,8 @@ const [editingTaskText, setEditingTaskText] = useState('');
 
   useEffect(() => { fetchTasks(); }, []);
 
+  // Fetch all to-do tasks from Firestore
+
   async function fetchTasks() {
     const snap = await getDocs(
       query(collection(db, 'todos'), orderBy('createdAt', 'asc'))
@@ -279,6 +289,8 @@ const [editingTaskText, setEditingTaskText] = useState('');
       completed: d.data().completed as boolean,
     })));
   }
+
+  // Add a new item to the to-do list
 
   async function addTask() {
     if (!newTask.trim()) return;
@@ -291,6 +303,8 @@ const [editingTaskText, setEditingTaskText] = useState('');
     fetchTasks();
   }
 
+  // Mark a task as complete or incomplete
+
   async function toggleComplete(task: { id: string; completed: boolean }) {
     await updateDoc(doc(db, 'todos', task.id), {
       completed: !task.completed,
@@ -298,10 +312,14 @@ const [editingTaskText, setEditingTaskText] = useState('');
     fetchTasks();
   }
 
+  // Remove a task from the database
+
   async function deleteTask(id: string) {
     await deleteDoc(doc(db, 'todos', id));
     fetchTasks();
   }
+  // Renders the list of tasks with add/edit/delete features
+
   const renderToDoTab = () => (
         
           <SafeAreaView style={{ flex: 1, padding: 16,margin: 19 }}>
