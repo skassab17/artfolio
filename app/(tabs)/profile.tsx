@@ -508,7 +508,7 @@ const [editingTaskText, setEditingTaskText] = useState('');
                 <Pressable
                   key={h}
                   style={styles.hobbyIcon}
-                  onPress={() => router.push(`/hobby/${encodeURIComponent(h)}`)}
+                  onPress={() => router.push({ pathname: './hobby/[hobby]', params: { hobby: h } })}
                 >
                   <Feather name="image" size={32} color="#000" />
                   <Text>{h}</Text>
